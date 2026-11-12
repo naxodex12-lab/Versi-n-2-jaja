@@ -1,0 +1,6 @@
+{
+  "name": "Interfaz Puente – Asistente BancoEstado",
+  "description": "Asistente guiado por voz y táctil para operaciones bancarias accesibles, seguras y sin fricción en BancoEstado.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

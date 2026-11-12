@@ -1,0 +1,2267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#F77F00">
+<title>Interfaz Puente — BancoEstado</title>
+
+<!-- Tipografías oficiales similares a la App BancoEstado (Nunito / Nunito Sans) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,600;0,6..12,700;0,6..12,800;0,6..12,900;1,6..12,800;1,6..12,900&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --navy:#0D1B3E; --navy-sheet:#102048; --fab:#16244C; --teal:#2EC4A4;
+    --orange:#F77F00; --orange-2:#FF9A3C; --indigo:#29398E; --indigo-soft:#E8ECFB;
+    --ink:#1E2538; --muted:#535F7A; --line:#DCE1EB; --bg:#F4F6FA; --red:#D9383A; --red-soft:#FEECEE;
+    --green:#0D8F72; --mint:#E3F7F0; --blue-pale:#E3EEFC;
+    --ease:cubic-bezier(.22,.61,.36,1);
+    --font-main:'Nunito Sans',system-ui,-apple-system,sans-serif;
+    --font-brand:'Nunito',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;width:100%;overflow:hidden}
+  body{font-family:var(--font-main);background:#dfe3eb;color:var(--ink);-webkit-tap-highlight-color:transparent}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  .ic{width:22px;height:22px;display:block}
+
+  /* Aviso si se abre dentro del WebView de la app de Google o WhatsApp */
+  .inapp-warning{
+    display:none;position:relative;z-index:99;background:#1E293B;color:#F8FAFC;
+    padding:10px 14px;font-size:13px;align-items:center;justify-content:space-between;gap:10px;
+    box-shadow:0 2px 10px rgba(0,0,0,.25);
+  }
+  .inapp-warning.show{display:flex}
+  .btn-intent{
+    background:var(--orange);color:#fff;padding:6px 12px;border-radius:8px;
+    font-size:12px;font-weight:900;text-decoration:none;white-space:nowrap;
+  }
+
+  /* Marco móvil proporcionado a escala real */
+  .app{position:relative;width:100%;max-width:440px;margin:0 auto;height:100vh;height:100dvh;background:var(--bg);overflow:hidden;overflow-y:clip;contain:paint}
+  @media (min-width:480px){
+    .app{height:min(840px,calc(100vh - 24px));margin-top:12px;border-radius:28px;box-shadow:0 25px 60px -20px rgba(13,27,62,.4)}
+  }
+  .views{position:absolute;top:0;left:0;right:0;bottom:0}
+  .view{
+    position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;background:var(--bg);
+    opacity:0;visibility:hidden;transform:translateX(20px);
+    transition:opacity .4s var(--ease),transform .4s var(--ease),visibility 0s linear .4s;
+  }
+  .view.is-before{transform:translateX(-20px)}
+  .view.is-active{opacity:1;visibility:visible;transform:none;transition:opacity .4s var(--ease),transform .4s var(--ease),visibility 0s}
+  .scroll{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;position:relative}
+
+  /* Cabecera BancoEstado a escala y tipografía real */
+  /* Cabecera BancoEstado a escala y tipografía real */
+  .be-header{
+    background:linear-gradient(100deg,var(--orange) 0%,var(--orange-2) 100%);
+    height:148px;border-bottom-left-radius:44px 36px;
+    padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 0;
+    display:flex;align-items:flex-start;justify-content:space-between;
+  }
+  .brand-logo-wrap{display:flex;align-items:center;padding-top:2px;cursor:pointer}
+  .brand-logo-wrap:active{opacity:.9}
+  .be-logo-img{height:36px;width:auto;max-width:210px;display:block;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.15))}
+  .be-actions{display:flex;gap:6px}
+  .round{width:38px;height:38px;border-radius:50%;background:#FFF1E2;color:var(--indigo);display:flex;align-items:center;justify-content:center}
+  .round .ic{width:20px;height:20px}
+
+  /* ================= PANTALLA DE CARGA / TRANSICIÓN BANCOESTADO (AUREOLA GIRANDO) ================= */
+  .be-page-loader{
+    position:absolute;top:0;left:0;right:0;bottom:0;background:#FFFFFF;
+    z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    opacity:0;visibility:hidden;pointer-events:none;transition:opacity .24s var(--ease),visibility .24s var(--ease);
+  }
+  .be-page-loader.active{opacity:1;visibility:visible;pointer-events:auto}
+  .be-loader-wrap{
+    position:relative;width:80px;height:80px;display:flex;align-items:center;justify-content:center;
+  }
+  /* Aureola naranja girando exactamente como en la referencia nativa */
+  .be-loader-ring{
+    position:absolute;top:0;left:0;width:80px;height:80px;border-radius:50%;
+    border:3.5px solid transparent;border-top-color:#FF6A00;border-right-color:#FF6A00;
+    animation:be-ring-spin .75s linear infinite;
+  }
+  @keyframes be-ring-spin{to{transform:rotate(360deg)}}
+  .be-loader-logo{
+    width:48px;height:48px;border-radius:50%;background:transparent;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden;
+  }
+  .be-loader-logo img{width:46px;height:46px;display:block;object-fit:contain}
+
+  /* ================= SPOTLIGHT / OSCURECIMIENTO EN DESTINATARIOS ================= */
+  .recipients-scroll.spotlight-active .contact-item:not(.spotlight-target),
+  .recipients-scroll.spotlight-active .contact-letter-header{
+    opacity:.18;filter:blur(.5px);transition:all .35s var(--ease);
+  }
+  .contact-item.spotlight-target{
+    opacity:1 !important;filter:none !important;transform:scale(1.03);
+    background:#FFF9F2 !important;border:2.5px solid var(--orange) !important;
+    border-radius:14px;box-shadow:0 8px 26px rgba(247,127,0,.35) !important;
+    z-index:20;position:relative;transition:all .3s var(--ease);
+  }
+
+  /* Tarjetas de cuenta proporcionadas */
+  .cards{padding:0 14px 24px;margin-top:-76px;position:relative}
+  .card{background:#fff;border-radius:16px;box-shadow:0 2px 10px rgba(25,35,70,.06);margin-bottom:12px}
+  .acct{padding:16px}
+  .acct .top{display:flex;justify-content:space-between;align-items:center}
+  .acct .num{font-size:15px;color:var(--ink);letter-spacing:.2px}
+  .acct .num b{font-weight:800}
+  .kebab{width:36px;height:36px;color:var(--indigo);display:flex;align-items:center;justify-content:center;margin-right:-6px}
+  .bal-row{display:flex;align-items:center;gap:10px;margin-top:4px}
+  .bal{font-size:30px;font-weight:900;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+  .eye{color:var(--indigo);width:24px;height:24px}
+  .acct .lbl{color:var(--muted);font-size:14px;font-weight:600;margin-top:2px}
+  .btn-row{display:flex;gap:10px;margin-top:14px}
+  .pill{flex:1;min-height:44px;border-radius:24px;font-size:15px;font-weight:800;letter-spacing:.1px}
+  .pill.filled{background:var(--indigo);color:#fff}
+  .pill.outline{border:1.8px solid var(--indigo);color:var(--indigo);background:#fff}
+
+  .promo{display:flex;overflow:hidden;min-height:136px}
+  .promo .txt{flex:1;padding:14px 6px 14px 14px;display:flex;flex-direction:column;align-items:flex-start}
+  .promo h3{font-size:16px;font-weight:800;line-height:1.2}
+  .promo p{font-size:13px;line-height:1.3;margin:4px 0 8px;color:var(--ink)}
+  .pill.small{flex:none;min-height:36px;padding:0 16px;font-size:14px}
+  .promo .pic{width:36%;border-radius:44px 0 0 0;background:linear-gradient(160deg,#9db7e8,#5e7fd0);display:flex;align-items:center;justify-content:center}
+  .promo .pic svg{width:46px;height:46px;color:#fff;opacity:.9}
+  .dots{display:flex;justify-content:center;gap:8px;margin:-2px 0 10px}
+  .dots i{width:9px;height:9px;border-radius:50%;background:#D0D4DE;display:block}
+  .dots i:first-child{background:var(--orange)}
+
+  .h2{font-size:16px;margin:8px 2px 6px;color:var(--ink);font-weight:800}
+  .tcard{position:relative;padding:14px 14px 14px 24px;min-height:108px;overflow:hidden}
+  .tcard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:10px;background:linear-gradient(180deg,#1d3d97 0 50%,#ef3c4a 50% 100%)}
+  .tcard b{font-size:15px;font-weight:800;display:block}
+  .tcard .mask{font-size:15px;color:var(--ink);margin-top:2px;font-weight:600}
+  .tcard .visa{position:absolute;right:14px;top:16px;font-size:24px;font-weight:900;font-style:italic;color:#1a2f87}
+  
+  .scard{padding:16px;position:relative}
+  .scard b{font-size:15px;font-weight:800;display:block;padding-right:40px}
+  .scard .acc{font-size:14px;margin-top:4px}
+  .scard .amt{font-size:24px;font-weight:900;margin-top:4px;display:flex;align-items:center;gap:8px}
+  .scard .share{position:absolute;right:14px;top:14px;color:var(--indigo)}
+  .scard .next{position:absolute;right:-4px;top:50%;margin-top:-20px;width:40px;height:40px;border-radius:50%;background:var(--indigo-soft);color:var(--indigo);display:flex;align-items:center;justify-content:center}
+  .scard .tot{color:var(--muted);font-size:13px;margin-top:2px;font-weight:600}
+
+  /* Barra de navegación inferior */
+  .bottom-nav{flex:0 0 auto;background:#fff;display:flex;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .nav-item{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px 6px;font-size:12px;font-weight:800;color:var(--ink);min-height:58px}
+  .nav-item .ic{width:24px;height:24px}
+  .nav-item.on{color:var(--orange)}
+  .nav-item.on::before{content:'';position:absolute;top:0;left:15%;right:15%;height:3px;background:var(--orange);border-radius:2px}
+
+  /* Vista Transferir */
+  .t-head{background:#fff;padding:calc(env(safe-area-inset-top,0px) + 8px) 8px 8px;display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .t-head h1{font-size:19px;font-weight:900}
+  .icon-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;color:var(--ink)}
+  .t-scroll{background:#fff;padding:16px 14px 220px}
+  .field{margin-bottom:16px;transition:opacity .4s var(--ease)}
+  .field > .lbl{font-size:14px;font-weight:800;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+  .field .tick{color:var(--green);opacity:0;transform:scale(.5);transition:all .3s var(--ease);width:18px;height:18px}
+  .field.filled .tick{opacity:1;transform:scale(1)}
+  .fcard{border:1.6px solid var(--line);border-radius:14px;padding:14px;background:#fff;transition:all .4s var(--ease)}
+  .field[data-f="origin"] .fcard{background:var(--bg);border-color:transparent}
+  .fcard .big{font-size:17px;font-weight:800;color:var(--ink)}
+  .fcard .sub{font-size:14px;color:var(--muted);margin-top:2px}
+  .fcard .ph{color:#5C677D;font-weight:600;font-size:15px}
+  .fcard .err{color:var(--red)}
+  .field.filled .fcard{border-color:var(--teal);background:var(--mint);box-shadow:0 0 0 3px rgba(46,196,164,.15)}
+  .field.has-error .fcard{border-color:var(--red);background:var(--red-soft);box-shadow:0 0 0 3px rgba(217,56,58,.15)}
+  .amount-big{font-size:24px;font-weight:900}
+  .amount-err{font-size:14px;font-weight:800;color:var(--red);margin-top:6px;line-height:1.3}
+  
+  /* Spotlight y oscurecimiento en el formulario de transferencia */
+  #viewTransfer[data-focus="dest"] .field:not([data-f="dest"]){opacity:.3;filter:grayscale(40%);transition:all .35s var(--ease)}
+  #viewTransfer[data-focus="amount"] .field:not([data-f="amount"]){
+    opacity:.22;filter:grayscale(50%);transition:all .35s var(--ease);
+  }
+  #viewTransfer[data-focus="summary"] .field[data-f="origin"],
+  #viewTransfer[data-focus="summary"] .field[data-f="msg"]{opacity:.25;filter:grayscale(40%)}
+
+  #viewTransfer[data-focus="dest"] [data-f="dest"] .fcard{outline:3px solid var(--teal);outline-offset:2px}
+  #viewTransfer[data-focus="amount"] [data-f="amount"]{
+    opacity:1;transform:scale(1.02);transition:all .35s var(--ease);
+  }
+  #viewTransfer[data-focus="amount"] [data-f="amount"] .fcard{
+    border-color:var(--orange) !important;
+    background:#FFFDF9 !important;
+    box-shadow:0 0 0 4px rgba(247,127,0,.2) !important;
+  }
+
+  .cta{width:100%;min-height:50px;border-radius:14px;background:var(--indigo);color:#fff;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px}
+  .cta:disabled{opacity:.35;cursor:default}
+  .cta:not(:disabled):active{transform:scale(.98)}
+  .cta.ghost{background:#fff;color:var(--indigo);border:2px solid var(--indigo)}
+  .summary{background:var(--blue-pale);border-radius:14px;padding:0 14px;margin-top:14px;font-size:15px;line-height:1.5;color:var(--navy);max-height:0;opacity:0;overflow:hidden;transition:all .4s var(--ease)}
+  .summary.show{max-height:260px;opacity:1;padding:14px}
+  .summary b{display:block;font-size:16px;margin-bottom:4px}
+
+  /* Vista Comprobante */
+  .r-scroll{background:#fff;padding:calc(env(safe-area-inset-top,0px) + 20px) 16px 28px}
+  .r-head{text-align:center;margin-bottom:20px}
+  .r-head .circle{width:64px;height:64px;border-radius:50%;background:var(--mint);color:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;border:2.5px solid var(--teal)}
+  .r-head .circle .ic{width:32px;height:32px}
+  .r-head h2{font-size:20px;font-weight:900}
+  .r-row{padding:12px 0;border-bottom:1px solid var(--line)}
+  .r-row .k{font-size:14px;color:var(--muted);font-weight:600}
+  .r-row .v{font-size:17px;font-weight:800;margin-top:2px}
+  .r-row .v small{display:block;font-size:14px;color:var(--muted);font-weight:500;margin-top:2px}
+  .r-btns{display:flex;flex-direction:column;gap:10px;margin-top:22px}
+
+  /* ================= ASISTENTE (INTERFAZ PUENTE) ================= */
+  .dim{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(13,27,62,.6);opacity:0;pointer-events:none;transition:opacity .4s var(--ease);z-index:10}
+  .dim.on{opacity:1;pointer-events:auto}
+  .dim.clear{background-color:transparent}
+
+  .fab{
+    position:absolute;right:14px;bottom:116px;width:66px;height:66px;border-radius:50%;z-index:15;
+    background:var(--fab);border:3px solid var(--teal);color:var(--teal);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 8px 22px rgba(13,27,62,.35);
+    transition:all .35s var(--ease);
+    animation:fab-pulse 3s ease-out infinite;
+  }
+  .fab .ic{width:36px;height:36px}
+  .fab:active{transform:scale(.92)}
+  .fab.hidden{opacity:0;pointer-events:none;transform:scale(.6);animation:none}
+  .app[data-view="transfer"] .fab{bottom:54px}
+  .app[data-view="receipt"] .fab{display:none}
+  @keyframes fab-pulse{0%{box-shadow:0 8px 22px rgba(13,27,62,.35),0 0 0 0 rgba(46,196,164,.55)}70%,100%{box-shadow:0 8px 22px rgba(13,27,62,.35),0 0 0 16px rgba(46,196,164,0)}}
+
+  /* Bottom sheet del Asistente */
+  .sheet{
+    position:absolute;left:0;right:0;bottom:0;z-index:20;max-height:80%;display:flex;flex-direction:column;
+    background:var(--navy-sheet);color:#fff;border-radius:26px 26px 0 0;
+    padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 20px);
+    transform:translateY(106%);transition:transform .5s var(--ease);
+    box-shadow:0 -10px 36px rgba(0,0,0,.35);
+  }
+  .sheet.open{transform:none}
+
+  /* BARRA SUPERIOR: Estado a la izquierda y ✕ a la derecha */
+  .sheet-top{display:flex;align-items:center;justify-content:space-between;min-height:42px}
+  
+  .status{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;letter-spacing:.02em;color:var(--teal)}
+  .status.listening{color:#FF8A80}
+  .status.thinking{color:#D5DEFF}
+  .status.waiting{color:#FFD166}
+  .eq{display:flex;gap:2.5px;align-items:flex-end;height:12px;width:15px}
+  .eq i{width:3px;height:3px;background:currentColor;border-radius:1.5px;display:block}
+  .status.speaking .eq i,.status.listening .eq i,.status.thinking .eq i{animation:eq 1s ease-in-out infinite}
+  .eq i:nth-child(2){animation-delay:.15s}.eq i:nth-child(3){animation-delay:.3s}
+  @keyframes eq{0%,100%{height:3px}50%{height:12px}}
+
+  /* Botón Cerrar (✕) */
+  .btn-close-sheet{
+    width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.1);
+    color:#fff;display:flex;align-items:center;justify-content:center;
+    transition:background .2s ease,transform .15s ease;
+  }
+  .btn-close-sheet:active{background:rgba(217,56,58,.4);transform:scale(.92)}
+  .btn-close-sheet .ic{width:22px;height:22px}
+
+  /* Burbuja de Mensaje del Asistente */
+  .msg-wrap{position:relative;margin:10px 0 6px}
+  .msg{font-size:17px;line-height:1.45;font-weight:700;min-height:50px;max-height:180px;overflow-y:auto;color:#FFFFFF}
+  .msg.swap{animation:msg-in .4s var(--ease)}
+  @keyframes msg-in{from{opacity:.2;transform:translateY(4px)}to{opacity:1;transform:none}}
+  
+  /* Botón Repetir integrado de forma natural */
+  .btn-replay{
+    display:inline-flex;align-items:center;gap:5px;margin-top:6px;
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#D3DDFA;
+    padding:4px 10px;border-radius:14px;font-size:12px;font-weight:800;
+  }
+  .btn-replay:active{background:rgba(255,255,255,.25)}
+  .btn-replay .ic{width:14px;height:14px}
+
+  .heard{font-size:14px;color:#A2B4DE;font-style:italic;min-height:20px;margin-top:4px}
+
+  /* Banner de diagnóstico/ayuda si el navegador (Chrome móvil / Webview) tiene problemas con el micrófono */
+  .mic-help-banner{
+    display:none;background:#FFEFEF;color:#9B1C1C;border:1.5px solid #F8B4B4;
+    border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.45;margin-top:10px;font-weight:700;
+  }
+  .mic-help-banner.show{display:block}
+  .btn-grant-mic{
+    margin-top:8px;background:#9B1C1C;color:#fff;font-size:13px;font-weight:800;
+    padding:7px 14px;border-radius:8px;display:inline-block;margin-right:8px;
+  }
+  .btn-help-steps{
+    margin-top:8px;background:#fff;color:#9B1C1C;border:1.5px solid #9B1C1C;font-size:13px;font-weight:800;
+    padding:6px 12px;border-radius:8px;display:inline-block;
+  }
+
+  /* Zona inferior: Chips + Micrófono */
+  .sheet-bottom{display:flex;align-items:flex-end;gap:10px;margin-top:12px}
+  .chips{flex:1;display:flex;flex-wrap:wrap;gap:8px;min-width:0}
+  .chip{
+    min-height:44px;padding:0 14px;border-radius:22px;font-size:15px;font-weight:800;color:#fff;
+    background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.4);
+    display:flex;align-items:center;justify-content:center;text-align:left;
+  }
+  .chip:active{background:rgba(255,255,255,.28);transform:scale(.97)}
+
+  /* Botón Micrófono con pulsación de Barge-In */
+  .mic{
+    position:relative;flex:0 0 auto;width:64px;height:64px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#4ff2cc,var(--teal) 70%);color:var(--navy);
+    display:flex;align-items:center;justify-content:center;transition:all .25s ease;
+    box-shadow:0 6px 18px rgba(0,0,0,.25);
+  }
+  .mic:active{transform:scale(.93)}
+  .mic .ic{width:30px;height:30px}
+  .mic .ring{position:absolute;top:-6px;left:-6px;right:-6px;bottom:-6px;border-radius:50%;border:2px solid var(--teal);opacity:0}
+  .mic.listening{background:radial-gradient(circle at 35% 30%,#ff8a65,var(--red) 70%);color:#fff}
+  .mic.listening .ring{border-color:var(--red);animation:ring 1.6s ease-out infinite}
+  .mic.speaking .ring{animation:ring 2s ease-out infinite}
+  .mic.thinking{background:radial-gradient(circle at 35% 30%,#63739d,#2d395a 70%);color:#d2dcf4}
+  @keyframes ring{0%{opacity:.75;transform:scale(.85)}80%,100%{opacity:0;transform:scale(1.6)}}
+
+  .note{font-size:13px;color:#A9BBDF;margin-top:8px;line-height:1.35}
+  .note:empty{display:none}
+  .typebox{margin-top:8px;width:100%;min-height:44px;border-radius:12px;border:none;padding:0 14px;font-size:15px;font-weight:700}
+
+  /* ================= MODAL DE GUÍA PARA ACTIVAR MICRÓFONO EN CHROME ================= */
+  .mic-guide-modal{
+    position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(13,27,62,.85);
+    z-index:60;opacity:0;visibility:hidden;display:flex;flex-direction:column;justify-content:center;align-items:center;
+    padding:20px;transition:all .35s var(--ease);
+  }
+  .mic-guide-modal.active{opacity:1;visibility:visible}
+  .mic-guide-card{
+    background:#fff;border-radius:24px;padding:22px 18px;max-width:380px;width:100%;
+    box-shadow:0 15px 40px rgba(0,0,0,.35);
+  }
+  .mic-guide-title{font-size:18px;font-weight:900;color:var(--ink);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .mic-step{display:flex;gap:12px;margin-bottom:12px;align-items:flex-start}
+  .mic-step-num{background:var(--orange);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex:none}
+  .mic-step-txt{font-size:14px;line-height:1.4;color:var(--ink)}
+  .mic-step-txt b{font-weight:800;color:var(--indigo)}
+  .mic-guide-btns{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+  .btn-reload{background:var(--indigo);color:#fff;min-height:44px;border-radius:12px;font-size:15px;font-weight:800}
+  .btn-dismiss-guide{color:var(--muted);min-height:38px;font-size:14px;font-weight:700}
+
+  /* ================= BOTTOM SHEET "¿QUÉ NECESITAS HACER?" ================= */
+  .tx-sheet-overlay{
+    position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(13,27,62,.65);
+    z-index:35;opacity:0;visibility:hidden;display:flex;flex-direction:column;justify-content:flex-end;
+    transition:all .32s var(--ease);
+  }
+  .tx-sheet-overlay.active{opacity:1;visibility:visible}
+  .tx-sheet-card{
+    background:#fff;border-radius:24px 24px 0 0;padding:20px 18px calc(env(safe-area-inset-bottom,0px) + 24px);
+    box-shadow:0 -10px 36px rgba(0,0,0,.28);transform:translateY(100%);transition:transform .35s var(--ease);
+  }
+  .tx-sheet-overlay.active .tx-sheet-card{transform:none}
+  .tx-sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .tx-sheet-title{font-size:19px;font-weight:900;color:var(--ink)}
+  .tx-sheet-close{
+    width:36px;height:36px;border-radius:50%;color:var(--muted);display:flex;align-items:center;
+    justify-content:center;background:#F0F3F8;transition:background .2s;
+  }
+  .tx-sheet-close:active{background:#E0E5EE}
+  .tx-options{display:flex;flex-direction:column;gap:12px}
+  .tx-opt-btn{
+    display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;
+    background:#fff;border:1.6px solid var(--line);text-align:left;transition:all .2s ease;
+  }
+  .tx-opt-btn:active{background:var(--indigo-soft);border-color:var(--indigo);transform:scale(.98)}
+  .tx-opt-ic{
+    width:46px;height:46px;border-radius:14px;background:var(--indigo-soft);color:var(--indigo);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .tx-opt-ic svg{width:24px;height:24px}
+  .tx-opt-title{font-size:16px;font-weight:800;color:var(--ink)}
+  .tx-opt-sub{font-size:13px;color:var(--muted);margin-top:2px;font-weight:600}
+
+  /* ================= PANTALLA SELECCIÓN DE DESTINATARIO ("A TERCEROS") ================= */
+  .recipients-head{
+    background:#fff;padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 10px;
+    display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);flex:0 0 auto;
+  }
+  .recipients-head h1{font-size:19px;font-weight:900}
+  
+  .recipients-quick-actions{
+    display:flex;gap:10px;padding:12px 14px 8px;background:#fff;
+  }
+  .btn-quick-action{
+    flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+    padding:10px 12px;border-radius:24px;border:1.5px solid var(--indigo);
+    background:#fff;color:var(--indigo);font-size:13px;font-weight:800;transition:all .2s;
+  }
+  .btn-quick-action:active{background:var(--indigo-soft)}
+  .btn-quick-action.primary{background:var(--indigo);color:#fff}
+  .btn-quick-action svg{width:16px;height:16px}
+  
+  .search-bar-wrap{padding:6px 14px 12px;background:#fff}
+  .search-box{
+    display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;
+    background:var(--bg);border:1.4px solid var(--line);transition:all .2s;
+  }
+  .search-box:focus-within{border-color:var(--indigo);background:#fff;box-shadow:0 0 0 3px rgba(41,57,142,.12)}
+  .search-box svg{color:var(--muted);width:18px;height:18px;flex-shrink:0}
+  .search-box input{
+    border:none;background:none;width:100%;font-size:14px;font-weight:700;
+    color:var(--ink);outline:none;font-family:inherit;
+  }
+  .search-box input::placeholder{color:var(--muted);font-weight:600}
+  
+  /* Tabs fijas */
+  .recipients-tabs{
+    display:flex;background:#fff;border-bottom:1.5px solid var(--line);
+  }
+  .rec-tab{
+    flex:1;padding:12px 6px 10px;text-align:center;font-size:14px;font-weight:800;
+    color:var(--muted);position:relative;border:none;background:none;cursor:pointer;
+  }
+  .rec-tab.active{color:var(--indigo)}
+  .rec-tab.active::after{
+    content:'';position:absolute;bottom:-1.5px;left:15%;right:15%;height:3px;
+    background:var(--indigo);border-radius:3px;
+  }
+  
+  /* Lista de contactos alfabética */
+  .recipients-scroll{background:var(--bg);padding:8px 0 100px}
+  .contact-letter-group{margin-bottom:10px}
+  .contact-letter-header{
+    padding:6px 16px;font-size:13px;font-weight:900;color:var(--indigo);
+    background:rgba(41,57,142,0.06);letter-spacing:0.5px;
+  }
+  .contact-item{
+    display:flex;align-items:center;gap:12px;padding:12px 16px;background:#fff;
+    border-bottom:1px solid #ECEEF3;cursor:pointer;transition:background .15s;
+  }
+  .contact-item:active{background:var(--indigo-soft)}
+  .contact-avatar{
+    width:42px;height:42px;border-radius:50%;background:#FFF1E2;color:var(--orange);
+    display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;
+    flex-shrink:0;
+  }
+  .contact-info{flex:1;min-width:0}
+  .contact-name{font-size:15px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .contact-meta{font-size:12px;color:var(--muted);font-weight:600;margin-top:2px}
+  .contact-arrow{color:var(--line);width:18px;height:18px;flex-shrink:0}
+
+  /* ================= MODAL SEGURIDAD BE PASS (ALTA FIDELIDAD) ================= */
+  .auth-overlay{
+    position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(13,27,62,.72);
+    z-index:45;opacity:0;visibility:hidden;display:flex;flex-direction:column;justify-content:flex-end;
+    transition:all .32s var(--ease);
+  }
+  .auth-overlay.active{opacity:1;visibility:visible}
+  .auth-card{
+    background:#fff;border-radius:24px 24px 0 0;padding:16px 20px calc(env(safe-area-inset-bottom,0px) + 24px);
+    box-shadow:0 -10px 40px rgba(0,0,0,.35);transform:translateY(100%);transition:transform .38s var(--ease);
+    position:relative;
+  }
+  .auth-overlay.active .auth-card{transform:none}
+  
+  .auth-top-bar{display:flex;justify-content:flex-end;margin-bottom:2px}
+  .auth-close-x{
+    width:36px;height:36px;border-radius:50%;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .auth-close-x:active{background:var(--bg)}
+  .auth-close-x svg{width:22px;height:22px}
+  
+  /* Insignia BE Pass idéntica a la captura */
+  .bepass-badge-wrap{display:flex;justify-content:center;margin:4px 0 16px}
+  .bepass-badge{
+    width:66px;height:66px;border-radius:18px;
+    background:linear-gradient(135deg,#13D698 0%,#00B67A 100%);
+    box-shadow:0 8px 22px rgba(0,182,122,.32);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  }
+  .bepass-badge svg{width:26px;height:26px;color:#fff}
+  .bepass-text{color:#fff;font-size:12px;font-weight:900;letter-spacing:0.2px;line-height:1}
+  
+  .bepass-prompt{font-size:15px;font-weight:800;color:var(--ink);text-align:center;margin-bottom:16px}
+  
+  /* Casilleros BE Pass con estilo original gris suave + guion bajo */
+  .bepass-inputs{display:flex;justify-content:center;gap:8px;margin-bottom:24px}
+  .bepass-box{
+    width:42px;height:50px;border-radius:8px;background:#F0F2F6;border:2px solid transparent;
+    font-size:22px;font-weight:900;text-align:center;color:var(--ink);outline:none;caret-color:transparent;
+    transition:all .15s ease;
+  }
+  .bepass-box:focus{border-color:#13D698;background:#fff;box-shadow:0 0 0 3px rgba(19,214,152,.2)}
+  .bepass-box.filled{background:#E8FAF3;border-color:#13D698;color:#0D8F72}
+  
+  /* Botones Autorizar y Rechazar */
+  .btn-bepass-auth{
+    width:100%;height:48px;border-radius:24px;background:#DCE1EB;color:#8B96AB;
+    font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;
+    transition:all .25s ease;
+  }
+  .btn-bepass-auth.ready{background:var(--indigo);color:#fff;box-shadow:0 6px 18px rgba(41,57,142,.3);cursor:pointer}
+  .btn-bepass-auth.ready:active{background:#1B286E;transform:scale(.98)}
+  
+  .btn-bepass-reject{
+    display:block;width:100%;text-align:center;margin-top:16px;padding:6px;
+    color:var(--indigo);font-size:15px;font-weight:800;text-decoration:none;
+  }
+  .btn-bepass-reject:active{opacity:.7}
+  
+  .bepass-bio-secondary{
+    display:flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;
+    font-size:13px;font-weight:700;color:var(--muted);padding:6px;cursor:pointer;
+  }
+  .bepass-bio-secondary svg{width:18px;height:18px;color:var(--indigo)}
+
+  /* ================= OVERLAY CARGA Y AUTORIZACIÓN BE PASS ================= */
+  .tx-loading-overlay{
+    position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(13,27,62,.85);
+    z-index:55;opacity:0;visibility:hidden;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;transition:all .35s var(--ease);
+  }
+  .tx-loading-overlay.active{opacity:1;visibility:visible}
+  .tx-loading-card{
+    background:#fff;border-radius:24px;padding:32px 24px;width:86%;max-width:320px;
+    display:flex;flex-direction:column;align-items:center;text-align:center;
+    box-shadow:0 16px 40px rgba(0,0,0,.3);
+  }
+  .tx-spinner{
+    width:56px;height:56px;border-radius:50%;border:4px solid #E2E8F0;
+    border-top-color:var(--indigo);border-right-color:var(--orange);
+    animation:tx-spin .85s linear infinite;margin-bottom:18px;
+  }
+  @keyframes tx-spin{to{transform:rotate(360deg)}}
+  
+  .tx-check-circle{
+    display:none;width:58px;height:58px;border-radius:50%;background:var(--mint);
+    border:2.5px solid var(--teal);color:var(--green);align-items:center;justify-content:center;
+    margin-bottom:18px;animation:pop-in .35s var(--ease);
+  }
+  .tx-check-circle svg{width:32px;height:32px}
+  .tx-loading-card.success .tx-spinner{display:none}
+  .tx-loading-card.success .tx-check-circle{display:flex}
+  .tx-loading-title{font-size:17px;font-weight:900;color:var(--ink);transition:all .3s}
+  .tx-loading-card.success .tx-loading-title{color:var(--green)}
+  @keyframes pop-in{0%{transform:scale(.5);opacity:0}80%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+
+  /* ================= PANTALLA DE ÉXITO ================= */
+  .success-scroll{background:#fff;padding:0 0 40px}
+  .success-hero{
+    background:linear-gradient(180deg,#E3F7F0 0%,#EDFAF5 100%);
+    padding:calc(env(safe-area-inset-top,0px) + 28px) 20px 28px;
+    border-bottom-left-radius:36px;border-bottom-right-radius:36px;
+    text-align:center;position:relative;
+  }
+  .success-thumb-circle{
+    width:72px;height:72px;border-radius:50%;background:#fff;color:var(--green);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 14px;
+    box-shadow:0 8px 24px rgba(13,143,114,.22);border:3px solid var(--teal);
+  }
+  .success-thumb-circle svg{width:36px;height:36px}
+  .success-hero h1{font-size:22px;font-weight:900;color:var(--ink);margin-bottom:6px}
+  .success-msg-box{
+    font-size:16px;line-height:1.45;color:var(--ink);font-weight:700;
+    margin-top:10px;padding:0 10px;
+  }
+  .success-msg-box b{color:var(--indigo);font-weight:900}
+  
+  .success-card{
+    background:#fff;border-radius:18px;margin:20px 16px;padding:16px;
+    border:1.5px solid var(--line);box-shadow:0 4px 14px rgba(25,35,70,.04);
+  }
+  .success-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #ECEEF3;font-size:14px}
+  .success-row:last-child{border-bottom:none}
+  .success-row .lbl{color:var(--muted);font-weight:600}
+  .success-row .val{font-weight:800;color:var(--ink);text-align:right}
+  
+  .success-actions{display:flex;flex-direction:column;gap:12px;padding:0 16px;margin-top:20px}
+  .btn-success-main{
+    width:100%;height:50px;border-radius:25px;background:var(--indigo);color:#fff;
+    font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;
+  }
+  .btn-success-main:active{background:#1B286E;transform:scale(.98)}
+  .btn-success-secondary{
+    width:100%;height:50px;border-radius:25px;background:#fff;color:var(--indigo);
+    border:2px solid var(--indigo);font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;
+  }
+  .btn-success-secondary:active{background:var(--indigo-soft)}
+  .btn-success-exit{
+    display:block;text-align:center;padding:10px;color:var(--muted);
+    font-size:15px;font-weight:800;
+  }
+  .btn-success-exit:active{color:var(--ink)}
+
+  .toast{position:absolute;left:14px;right:14px;bottom:90px;z-index:50;background:rgba(20,26,45,.96);color:#fff;font-size:14px;line-height:1.4;padding:12px 16px;border-radius:12px;opacity:0;transform:translateY(10px);pointer-events:none;transition:all .3s var(--ease)}
+  .toast.show{opacity:1;transform:none}
+
+  @media (prefers-reduced-motion:reduce){*{animation:none !important;transition-duration:.01ms !important}}
+</style>
+</head>
+<body>
+
+<!-- Aviso de navegador interno (Google App / WhatsApp) -->
+<div class="inapp-warning" id="inAppWarning">
+  <span>⚠️ Estás en el visor interno de Google (bloquea el micrófono).</span>
+  <a class="btn-intent" id="btnIntentChrome" href="#">Abrir en Chrome</a>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs>
+    <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></g></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 17h12l-1.6-2.2V10a4.4 4.4 0 0 0-8.8 0v4.8L6 17Z"/><path d="M10 20h4"/></g></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 8h14M5 12h14M5 16h14"/></g></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.6-6 9.5-6 9.5 6 9.5 6-3.6 6-9.5 6-9.5-6Z"/><circle cx="12" cy="12" r="2.8"/></g></symbol>
+    <symbol id="i-kebab" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/></g></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5V20H4v-8.5Z"/><path d="M10 20v-5h4v5"/></g></symbol>
+    <symbol id="i-transfer" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h13l-3.5-3.5M19 16H6l3.5 3.5"/></g></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2.2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/><circle cx="12" cy="15" r=".9" fill="currentColor"/></g></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="4" width="4" height="4" rx=".8"/><rect x="10" y="4" width="4" height="4" rx=".8"/><rect x="16" y="4" width="4" height="4" rx=".8"/><rect x="4" y="10" width="4" height="4" rx=".8"/><rect x="10" y="10" width="4" height="4" rx=".8"/><rect x="16" y="10" width="4" height="4" rx=".8"/><rect x="4" y="16" width="4" height="4" rx=".8"/><rect x="10" y="16" width="4" height="4" rx=".8"/><rect x="16" y="16" width="4" height="4" rx=".8"/></g></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4M8.2 13.2l7.6 4"/></g></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></g></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></g></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></g></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.4"/><path d="M11 18.5h2"/></g></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Zm5-3a1 1 0 0 0-2 0 3 3 0 0 1-6 0 1 1 0 0 0-2 0 5 5 0 0 0 4 4.9V18H9a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2h-2v-2.1A5 5 0 0 0 17 11Z"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.5a2.8 2.8 0 1 1 4.5 2.2c-1 .7-1.8 1.2-1.8 2.4"/></g><circle cx="12" cy="17.1" r="1.1" fill="currentColor"/></symbol>
+    <symbol id="i-fingerprint" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41a.493.493 0 0 1-.68-.19.493.493 0 0 1 .19-.68C7.85 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.52.25.13.34.43.21.67a.49.49 0 0 1-.44.28z"/><path d="M3.5 9.72a.499.499 0 0 1-.41-.79C4.2 7.37 5.37 6.2 6.8 5.42a.5.5 0 1 1 .48.87C5.97 7.05 4.96 8.1 4 9.5c-.09.15-.25.22-.5.22z"/><path d="M21.48 9.93c-.17 0-.34-.08-.43-.24A9.16 9.16 0 0 0 17.2 6.4a.5.5 0 0 1 .4-.92 10.2 10.2 0 0 1 4.32 3.69.5.5 0 0 1-.44.76z"/><path d="M12 6c-3.31 0-6 2.69-6 6 0 1.78.39 3.33 1.08 4.51l-1.06.61C5.35 15.67 5 13.88 5 12 5 8.13 8.13 5 12 5s7 3.13 7 7c0 1.88-.35 3.67-.99 5.13l-1.08-.6C17.61 15.33 18 13.78 18 12c0-3.31-2.69-6-6-6z"/><path d="M12 10c-1.1 0-2 .9-2 2 0 3.46-.97 5.33-2.18 7.04l.92.62C9.96 17.93 11 15.81 11 12c0-.55.45-1 1-1s1 .45 1 1c0 4.08 1.49 6.25 2.07 6.96l.84-.68C15.44 17.67 14 15.36 14 12c0-1.1-.9-2-2-2z"/><path d="M12 14c-.55 0-1-.45-1-1v-1c0-.55.45-1 1-1s1 .45 1 1v1c0 .55-.45 1-1 1z"/></g></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s8 3 8 9c0 5.5-5.5 8.5-8 9.5-2.5-1-8-4-8-9.5 0-6 8-9 8-9Z"/><path d="M9 12l2 2 4-4"/></g></symbol>
+    <symbol id="i-replay" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></g></symbol>
+    <symbol id="i-thumbs-up" viewBox="0 0 24 24"><path fill="currentColor" d="M2 20h2c.55 0 1-.45 1-1v-9c0-.55-.45-1-1-1H2v11zm19.83-7.12c.11-.25.17-.52.17-.8V11c0-1.1-.9-2-2-2h-5.5l.92-4.65c.05-.22.02-.46-.08-.66a1.002 1.002 0 0 0-.75-.59L13.5 3 7.88 8.62c-.56.56-.88 1.32-.88 2.12V18c0 1.65 1.35 3 3 3h7.61c1.3 0 2.43-.84 2.81-2.08l2.41-6.04z"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></g></symbol>
+    <symbol id="i-accounts" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></g></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></g></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><polygon fill="currentColor" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></g></symbol>
+  </defs>
+</svg>
+
+<div class="app" id="app" data-view="home">
+
+  <div class="views">
+
+    <!-- ================= INICIO ================= -->
+    <section class="view is-active" id="viewHome" aria-label="Inicio">
+      <div class="scroll" id="homeScroll">
+        <header class="be-header">
+          <div class="brand-logo-wrap" aria-label="BancoEstado">
+            <img class="be-logo-img" alt="BancoEstado" src="data:image/png;base64,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" />
+          </div>
+          <div class="be-actions">
+            <button class="round dead" aria-label="Buscar"><svg class="ic"><use href="#i-search" xlink:href="#i-search"/></svg></button>
+            <button class="round dead" aria-label="Notificaciones"><svg class="ic"><use href="#i-bell" xlink:href="#i-bell"/></svg></button>
+            <button class="round dead" aria-label="Menú"><svg class="ic"><use href="#i-menu" xlink:href="#i-menu"/></svg></button>
+          </div>
+        </header>
+
+        <div class="cards">
+          <article class="card acct">
+            <div class="top">
+              <div class="num"><b>CuentaRUT</b> 00020920713</div>
+              <button class="kebab dead" aria-label="Más opciones"><svg class="ic"><use href="#i-kebab" xlink:href="#i-kebab"/></svg></button>
+            </div>
+            <div class="bal-row"><span class="bal" data-balance>$100.065</span><svg class="ic eye"><use href="#i-eye" xlink:href="#i-eye"/></svg></div>
+            <div class="lbl">Saldo disponible</div>
+            <div class="btn-row">
+              <button class="pill filled dead">Movimientos</button>
+              <button class="pill outline dead">Cartolas</button>
+            </div>
+          </article>
+
+          <article class="card promo">
+            <div class="txt">
+              <h3>Pide tu Tarjeta de Crédito</h3>
+              <p>Solicita ahora tu tarjeta y disfruta de todos los beneficios.</p>
+              <button class="pill filled small dead">Contáctenme</button>
+            </div>
+            <div class="pic"><svg class="ic"><use href="#i-phone" xlink:href="#i-phone"/></svg></div>
+          </article>
+          <div class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+
+          <h2 class="h2">Tus tarjetas</h2>
+          <article class="card tcard" style="display:flex;flex-direction:column;justify-content:space-between;padding:16px 16px 14px 24px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div>
+                <b>Tarjeta CuentaRUT</b>
+                <div class="mask">**** **** **** 1706</div>
+              </div>
+              <!-- Chip EMV SVG -->
+              <svg width="34" height="26" viewBox="0 0 34 26" fill="none" style="border-radius:4px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)">
+                <rect width="34" height="26" rx="4" fill="#D4AF37"/>
+                <path d="M0 9h34M0 17h34M12 0v26M22 0v26" stroke="#997A15" stroke-width="0.8"/>
+                <rect x="12" y="9" width="10" height="8" rx="2" fill="#E8C85A" stroke="#997A15" stroke-width="0.8"/>
+              </svg>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:14px;">
+              <span style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.3px;">DÉBITO</span>
+              <!-- VISA SVG -->
+              <svg width="48" height="16" viewBox="0 0 48 16" fill="none">
+                <path d="M19.2 1.2L12.6 15.2H8.3L5.1 4.1C4.9 3.3 4.7 3 4.1 2.7C3.1 2.2 1.5 1.7 0 1.4L0.1 1L7 1C7.9 1 8.7 1.6 8.9 2.6L10.6 11.7L14.9 1.2H19.2ZM36 10.4C36 6.5 30.5 6.3 30.5 4.5C30.5 3.9 31.1 3.2 32.3 3C32.9 2.9 34.6 2.8 36.3 3.6L37 0.7C36 0.3 34.7 0 33.1 0C29 0 26.2 2.2 26.2 5.3C26.2 7.6 28.3 8.9 29.8 9.7C31.4 10.5 31.9 11 31.9 11.7C31.9 12.8 30.6 13.3 29.3 13.3C27.3 13.3 26.1 13 24.8 12.4L24.1 15.5C25.4 16.1 27.2 16.5 29.1 16.5C33.5 16.5 36 14.3 36 10.4ZM46.6 15.2H42.7C41.8 15.2 41.1 14.7 40.8 13.9L34.8 1.2H39.2L41.9 8.2L44.5 1.2H48.4L46.6 15.2ZM25.2 1.2L21.8 15.2H17.7L21.1 1.2H25.2Z" fill="#1A2F87"/>
+              </svg>
+            </div>
+          </article>
+
+          <h2 class="h2">Tus ahorros</h2>
+          <article class="card scard">
+            <b>Plazo Vivienda Giro Diferido</b>
+            <div class="acc">30460553225</div>
+            <div class="amt">$307.529 <svg class="ic eye"><use href="#i-eye" xlink:href="#i-eye"/></svg></div>
+            <div class="tot">Total ahorrado</div>
+            <span class="share"><svg class="ic"><use href="#i-share" xlink:href="#i-share"/></svg></span>
+            <button class="next dead" aria-label="Siguiente"><svg class="ic"><use href="#i-chev" xlink:href="#i-chev"/></svg></button>
+          </article>
+        </div>
+      </div>
+
+      <nav class="bottom-nav" aria-label="Navegación principal">
+        <button class="nav-item on"><svg class="ic"><use href="#i-home" xlink:href="#i-home"/></svg>Inicio</button>
+        <button class="nav-item" id="navTransfer"><svg class="ic"><use href="#i-transfer" xlink:href="#i-transfer"/></svg>Transferir</button>
+        <button class="nav-item dead"><svg class="ic"><use href="#i-lock" xlink:href="#i-lock"/></svg>Seguridad</button>
+        <button class="nav-item dead"><svg class="ic"><use href="#i-grid" xlink:href="#i-grid"/></svg>Más</button>
+      </nav>
+    </section>
+
+    <!-- ================= SELECCIÓN DE DESTINATARIO ("A TERCEROS") ================= -->
+    <section class="view" id="viewRecipients" aria-label="Seleccionar destinatario">
+      <div class="recipients-head">
+        <button class="icon-btn" id="btnRecipientsBack" aria-label="Volver al inicio"><svg class="ic"><use href="#i-back" xlink:href="#i-back"/></svg></button>
+        <h1>Transferir</h1>
+      </div>
+
+      <div class="recipients-quick-actions">
+        <button class="btn-quick-action primary" id="btnNewRecipient"><svg class="ic"><use href="#i-plus" xlink:href="#i-plus"/></svg>Nuevo destinatario</button>
+        <button class="btn-quick-action" id="btnBetweenAccounts"><svg class="ic"><use href="#i-accounts" xlink:href="#i-accounts"/></svg>Entre mis cuentas</button>
+      </div>
+
+      <div class="search-bar-wrap">
+        <div class="search-box">
+          <svg class="ic"><use href="#i-search" xlink:href="#i-search"/></svg>
+          <input type="text" id="contactSearchInput" placeholder="Buscar por nombre, alias o RUT" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="recipients-tabs" role="tablist">
+        <button class="rec-tab" id="tabFavs" role="tab" aria-selected="false">Favoritos</button>
+        <button class="rec-tab active" id="tabSaved" role="tab" aria-selected="true">Guardados</button>
+        <button class="rec-tab" id="tabPhone" role="tab" aria-selected="false">Del celular</button>
+      </div>
+
+      <div class="scroll recipients-scroll" id="recipientsScroll">
+        <!-- Renderizado dinámico de contactos agrupados alfabéticamente -->
+        <div id="contactListContainer"></div>
+      </div>
+    </section>
+
+    <!-- ================= FORMULARIO DE TRANSFERENCIA ================= -->
+    <section class="view" id="viewTransfer" data-focus="none" aria-label="Transferir">
+      <div class="t-head">
+        <button class="icon-btn" id="backBtn" aria-label="Volver a destinatarios"><svg class="ic"><use href="#i-back" xlink:href="#i-back"/></svg></button>
+        <h1>Transferir</h1>
+      </div>
+      <div class="scroll t-scroll" id="tScroll">
+
+        <div class="field" data-f="origin">
+          <div class="lbl">Cuenta de origen</div>
+          <div class="fcard">
+            <div class="sub" style="margin:0">CuentaRUT 00020920713</div>
+            <div class="big" style="margin-top:2px"><span data-balance>$100.065</span> <span class="sub" style="font-weight:600">Disponible</span></div>
+          </div>
+        </div>
+
+        <div class="field" id="fDest" data-f="dest">
+          <div class="lbl">Destinatario <svg class="ic tick"><use href="#i-check" xlink:href="#i-check"/></svg></div>
+          <div class="fcard" id="fDestCard">
+            <div class="big ph" id="destName">Aún no lo has dicho</div>
+            <div class="sub" id="destRut">Di, por ejemplo: “a Belén Pardo”</div>
+            <div class="sub" id="destBank"></div>
+          </div>
+        </div>
+
+        <div class="field" id="fAmount" data-f="amount">
+          <div class="lbl">Ingresa un monto <svg class="ic tick"><use href="#i-check" xlink:href="#i-check"/></svg></div>
+          <div class="fcard" id="fAmountCard">
+            <div class="amount-big ph" id="amountVal" style="font-size:16px;font-weight:600">Aún no lo has dicho</div>
+            <div class="amount-err" id="amountErr"></div>
+          </div>
+        </div>
+
+        <div class="field" data-f="msg">
+          <div class="lbl">Incluir mensaje <span style="font-weight:500">(opcional)</span></div>
+          <div class="fcard"><div class="sub" style="margin:0">Ej.: Comida</div></div>
+        </div>
+
+        <button class="cta" id="continueBtn" disabled>Continuar</button>
+        <div class="summary" id="summary"></div>
+      </div>
+    </section>
+
+    <!-- ================= PANTALLA DE ÉXITO ================= -->
+    <section class="view" id="viewSuccess" aria-label="Transferencia exitosa">
+      <div class="scroll success-scroll">
+        <div class="success-hero">
+          <div class="success-thumb-circle"><svg class="ic"><use href="#i-thumbs-up" xlink:href="#i-thumbs-up"/></svg></div>
+          <h1>¡Transferencia exitosa!</h1>
+          <div class="success-msg-box" id="successMsgText">
+            ¡Has realizado la transferencia a <b id="successDestName">Belén Pardo</b> con éxito por <b id="successAmount">$30.000</b>!
+          </div>
+        </div>
+
+        <div class="success-card">
+          <div class="success-row"><span class="lbl">Cuenta de origen:</span><span class="val">CuentaRUT 00020920713</span></div>
+          <div class="success-row"><span class="lbl">Fecha y hora:</span><span class="val" id="successDate">--</span></div>
+          <div class="success-row"><span class="lbl">N° de operación:</span><span class="val" id="successOp">--</span></div>
+        </div>
+
+        <div class="success-actions">
+          <button class="btn-success-secondary" id="btnGoToReceipt">Ir al comprobante</button>
+          <button class="btn-success-main" id="btnMakeAnotherTx">Realizar otra transferencia</button>
+          <button class="btn-success-exit" id="btnExitHome">Salir</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= COMPROBANTE OFICIAL ================= -->
+    <section class="view" id="viewReceipt" aria-label="Comprobante de transferencia">
+      <div class="scroll r-scroll">
+        <div class="r-head">
+          <div class="circle"><svg class="ic"><use href="#i-check" xlink:href="#i-check"/></svg></div>
+          <h2>Comprobante emitido</h2>
+        </div>
+        <div class="r-row"><div class="k">Monto transferido</div><div class="v" id="rAmount"></div></div>
+        <div class="r-row"><div class="k">Destinatario</div><div class="v" id="rDest"></div></div>
+        <div class="r-row"><div class="k">Cuenta de origen</div><div class="v">CuentaRUT<small>00020920713</small></div></div>
+        <div class="r-row"><div class="k">Fecha y hora</div><div class="v" id="rDate"></div></div>
+        <div class="r-row"><div class="k">N° de operación</div><div class="v" id="rOp"></div></div>
+        <div class="r-btns">
+          <button class="cta ghost" id="shareBtn">Compartir comprobante</button>
+          <button class="cta" id="exitBtn">Salir al inicio</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ================= PANTALLA DE CARGA / TRANSICIÓN BANCOESTADO (AUREOLA GIRANDO) ================= -->
+  <div class="be-page-loader" id="bePageLoader" aria-live="polite" aria-label="Cargando">
+    <div class="be-loader-wrap">
+      <div class="be-loader-ring"></div>
+      <div class="be-loader-logo">
+        <svg viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="4" fill="#D01026"/>
+          <rect y="36" width="48" height="12" fill="#003E7E"/>
+          <polygon points="0,31 16,24 16,32 0,37" fill="#F26822"/>
+          <polygon points="0,21 16,14 16,21 0,28" fill="#F26822"/>
+          <polygon points="31,6 46,14 46,37 31,37" fill="#F26822"/>
+          <polygon points="16,14 31,6 31,37 16,37" fill="#FFFFFF"/>
+          <polygon points="16,14 22,10 31,6 23,17" fill="#FFFFFF"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ASISTENTE GUIADO ================= -->
+  <div class="dim" id="dim" role="button" aria-label="Cerrar asistente"></div>
+
+  <button class="fab" id="fab" aria-label="Abrir asistente de ayuda por voz"><svg class="ic"><use href="#i-help" xlink:href="#i-help"/></svg></button>
+
+  <div class="sheet" id="sheet" role="dialog" aria-label="Asistente guiado por voz">
+    
+    <!-- Barra superior: Estado a la izquierda y ✕ a la derecha -->
+    <div class="sheet-top">
+      <div class="status idle" id="status"><span class="eq"><i></i><i></i><i></i></span><span id="statusText">TOCA PARA HABLAR</span></div>
+      <button class="btn-close-sheet" id="btnCloseSheet" aria-label="Cerrar asistente">
+        <svg class="ic"><use href="#i-close" xlink:href="#i-close"/></svg>
+      </button>
+    </div>
+
+    <!-- Contenido del mensaje + botón repetir integrado al mensaje -->
+    <div class="msg-wrap">
+      <div class="msg" id="msg"></div>
+      <button class="btn-replay" id="repeatBtn" aria-label="Repetir lo que dijo el asistente">
+        <svg class="ic"><use href="#i-replay" xlink:href="#i-replay"/></svg> Escuchar de nuevo
+      </button>
+    </div>
+
+    <div class="heard" id="heard"></div>
+
+    <!-- Banner de diagnóstico/ayuda si el navegador (Chrome móvil / Webview) tiene problemas con el micrófono -->
+    <div class="mic-help-banner" id="micHelpBanner">
+      <div id="micHelpText">⚠️ El micrófono no está activo en Chrome. Toca abajo para solicitar acceso.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn-grant-mic" id="btnGrantMic">Activar micrófono</button>
+        <button class="btn-help-steps" id="btnHelpSteps">Ver cómo desbloquearlo</button>
+      </div>
+    </div>
+
+    <div class="sheet-bottom">
+      <div class="chips" id="chips"></div>
+      <button class="mic idle" id="mic" aria-label="Hablar o interrumpir para responder"><svg class="ic"><use href="#i-mic" xlink:href="#i-mic"/></svg><span class="ring"></span></button>
+    </div>
+    <div class="note" id="note"></div>
+  </div>
+
+  <!-- ================= MODAL DE GUÍA PARA ACTIVAR MICRÓFONO EN CHROME ================= -->
+  <div class="mic-guide-modal" id="micGuideModal">
+    <div class="mic-guide-card">
+      <div class="mic-guide-title">
+        <svg class="ic" style="color:var(--orange)"><use href="#i-lock" xlink:href="#i-lock"/></svg>
+        Cómo activar el micrófono en Chrome
+      </div>
+      <div class="mic-step">
+        <span class="mic-step-num">1</span>
+        <div class="mic-step-txt">En la barra de direcciones arriba, toca el ícono del <b>candado 🔒</b> o controles a la izquierda de la URL.</div>
+      </div>
+      <div class="mic-step">
+        <span class="mic-step-num">2</span>
+        <div class="mic-step-txt">Toca en <b>"Permisos"</b> (o <i>Configuración de sitios</i>) y activa la opción <b>Micrófono</b>.</div>
+      </div>
+      <div class="mic-step">
+        <span class="mic-step-num">3</span>
+        <div class="mic-step-txt">Toca el botón <b>"Recargar página"</b> para aplicar el permiso y hablar con el asistente.</div>
+      </div>
+      <div class="mic-guide-btns">
+        <button class="btn-reload" id="btnReloadPage">Recargar página ahora</button>
+        <button class="btn-dismiss-guide" id="btnDismissGuide">Entendido, cerrar guía</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= BOTTOM SHEET "¿QUÉ NECESITAS HACER?" ================= -->
+  <div class="tx-sheet-overlay" id="txSheetOverlay" role="dialog" aria-modal="true" aria-label="¿Qué necesitas hacer?">
+    <div class="tx-sheet-card">
+      <div class="tx-sheet-head">
+        <h2 class="tx-sheet-title">¿Qué necesitas hacer?</h2>
+        <button class="tx-sheet-close" id="btnTxSheetClose" aria-label="Cerrar"><svg class="ic"><use href="#i-close" xlink:href="#i-close"/></svg></button>
+      </div>
+      <div class="tx-options">
+        <button class="tx-opt-btn" id="btnOptThirdParty">
+          <div class="tx-opt-ic"><svg class="ic"><use href="#i-users" xlink:href="#i-users"/></svg></div>
+          <div>
+            <div class="tx-opt-title">A terceros</div>
+            <div class="tx-opt-sub">Transfiere a cuentas de otras personas o bancos</div>
+          </div>
+        </button>
+        <button class="tx-opt-btn" id="btnOptBetweenAccounts">
+          <div class="tx-opt-ic"><svg class="ic"><use href="#i-accounts" xlink:href="#i-accounts"/></svg></div>
+          <div>
+            <div class="tx-opt-title">Entre mis cuentas</div>
+            <div class="tx-opt-sub">Mueve dinero entre tu CuentaRUT y Ahorros</div>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL SEGURIDAD BE PASS DE ALTA FIDELIDAD ================= -->
+  <div class="auth-overlay" id="authOverlay" role="dialog" aria-modal="true" aria-label="Autorización BancoEstado BE Pass">
+    <div class="auth-card">
+      <div class="auth-top-bar">
+        <button class="auth-close-x" id="authCloseBtn" aria-label="Cerrar y rechazar"><svg class="ic"><use href="#i-close" xlink:href="#i-close"/></svg></button>
+      </div>
+
+      <!-- Insignia BE Pass idéntica a la app original -->
+      <div class="bepass-badge-wrap">
+        <div class="bepass-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="11" width="14" height="10" rx="2.5"/>
+            <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+            <circle cx="12" cy="16" r="1.2" fill="currentColor"/>
+          </svg>
+          <span class="bepass-text"><b>BE</b> Pass</span>
+        </div>
+      </div>
+
+      <div class="bepass-prompt">Ingresa tu clave BE Pass</div>
+
+      <!-- Casilleros de 6 dígitos -->
+      <div class="bepass-inputs" id="bepassInputs">
+        <input class="bepass-box" type="password" inputmode="numeric" maxlength="1" pattern="[0-9]" placeholder="_" autocomplete="off" aria-label="Dígito 1">
+        <input class="bepass-box" type="password" inputmode="numeric" maxlength="1" pattern="[0-9]" placeholder="_" autocomplete="off" aria-label="Dígito 2">
+        <input class="bepass-box" type="password" inputmode="numeric" maxlength="1" pattern="[0-9]" placeholder="_" autocomplete="off" aria-label="Dígito 3">
+        <input class="bepass-box" type="password" inputmode="numeric" maxlength="1" pattern="[0-9]" placeholder="_" autocomplete="off" aria-label="Dígito 4">
+        <input class="bepass-box" type="password" inputmode="numeric" maxlength="1" pattern="[0-9]" placeholder="_" autocomplete="off" aria-label="Dígito 5">
+        <input class="bepass-box" type="password" inputmode="numeric" maxlength="1" pattern="[0-9]" placeholder="_" autocomplete="off" aria-label="Dígito 6">
+      </div>
+
+      <!-- Botón Autorizar principal -->
+      <button class="btn-bepass-auth" id="authPinConfirmBtn" disabled>Autorizar</button>
+
+      <!-- Botón Rechazar secundario -->
+      <button class="btn-bepass-reject" id="btnBepassReject">Rechazar</button>
+
+      <!-- Huella secundaria alternativa -->
+      <div class="bepass-bio-secondary" id="authBioBtn" role="button" aria-label="Usar huella digital">
+        <svg class="ic"><use href="#i-fingerprint" xlink:href="#i-fingerprint"/></svg>
+        <span>O autorizar con huella digital</span>
+      </div>
+
+      <div class="auth-feedback" id="authFeedback"></div>
+      <div id="authDest" style="display:none"></div>
+      <div id="authAmount" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- ================= OVERLAY CARGA Y CHECK DE AUTORIZACIÓN ================= -->
+  <div class="tx-loading-overlay" id="txLoadingOverlay" role="dialog" aria-modal="true" aria-label="Autorizando operación">
+    <div class="tx-loading-card" id="txLoadingCard">
+      <div class="tx-spinner" id="txSpinner"></div>
+      <div class="tx-check-circle" id="txCheckCircle"><svg class="ic"><use href="#i-check" xlink:href="#i-check"/></svg></div>
+      <div class="tx-loading-title" id="txLoadingTitle">Autorizando con BE Pass…</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+</div>
+
+<script>
+// ===== PURE:START =====
+const CONTACTS = {
+  ana:     { name:'Ana Salas',             rut:'11.222.333-4', bank:'BancoEstado', account:'Cuenta Corriente · 11222333', aliases:['ana','anna','salas'] },
+  armando: { name:'Armando Paredes Rojas', rut:'20.358.963-3', bank:'BancoEstado', account:'CuentaRUT · 20358963', aliases:['armando','paredes','rojas'] },
+  belen:   { name:'Belén Pardo Escobar',   rut:'20.968.963-3', bank:'BancoEstado', account:'CuentaRUT · 20968963', aliases:['belen','pardo','escobar'] },
+  carlos:  { name:'Carlos Valdés',         rut:'9.876.543-2',  bank:'Banco de Chile', account:'Cuenta Vista · 9876543', aliases:['carlos','valdes'] },
+  elena:   { name:'Elena Ramírez',         rut:'12.345.678-9', bank:'BCI', account:'Cuenta Corriente · 12345678', aliases:['elena','helena','ramirez'] },
+  luis:    { name:'Luis Olate',            rut:'8.123.456-7',  bank:'Banco Santander', account:'Cuenta Corriente · 8123456', aliases:['luis','olate','olathe'] }
+};
+
+function norm(s){
+  return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+}
+function hasPhrase(t,p){ return (' '+t+' ').indexOf(' '+p+' ') !== -1; }
+function hasAny(t,list){ return list.some(function(p){ return hasPhrase(t,norm(p)); }); }
+function own(o,k){ return Object.prototype.hasOwnProperty.call(o,k); }
+
+const UNITS = {un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,
+  once:11,doce:12,trece:13,catorce:14,quince:15,dieciseis:16,diecisiete:17,dieciocho:18,diecinueve:19,
+  veinte:20,veintiuno:21,veintidos:22,veintitres:23,veinticuatro:24,veinticinco:25,veintiseis:26,
+  veintisiete:27,veintiocho:28,veintinueve:29};
+const TENS = {treinta:30,cuarenta:40,cincuenta:50,sesenta:60,setenta:70,ochenta:80,noventa:90};
+const HUNDREDS = {cien:100,ciento:100,doscientos:200,trescientos:300,cuatrocientos:400,quinientos:500,
+  seiscientos:600,setecientos:700,ochocientos:800,novecientos:900};
+
+function isNumWord(w){
+  return own(UNITS,w)||own(TENS,w)||own(HUNDREDS,w)||w==='mil'||w==='millon'||w==='millones'||w==='medio'||w==='media';
+}
+function runValue(run){
+  var total=0, cur=0;
+  run.forEach(function(w){
+    if(own(UNITS,w)) cur+=UNITS[w];
+    else if(own(TENS,w)) cur+=TENS[w];
+    else if(own(HUNDREDS,w)) cur+=HUNDREDS[w];
+    else if(w==='medio'||w==='media') cur+=0.5;
+    else if(w==='mil'){ total+=(cur||1)*1000; cur=0; }
+    else if(w==='millon'||w==='millones'){ total+=(cur||1)*1000000; cur=0; }
+  });
+  return Math.round(total+cur);
+}
+function wordsToNumber(t){
+  t = t.replace(/\bluca(s)?\b/g,'mil');
+  var toks=t.split(' '), best=0, i=0;
+  while(i<toks.length){
+    if(isNumWord(toks[i])){
+      var run=[], j=i;
+      while(j<toks.length){
+        if(isNumWord(toks[j])){ run.push(toks[j]); j++; }
+        else if(toks[j]==='y' && run.length && j+1<toks.length && isNumWord(toks[j+1])){ j++; }
+        else break;
+      }
+      best=Math.max(best,runValue(run));
+      i=j;
+    } else i++;
+  }
+  return best||null;
+}
+function extractAmount(raw){
+  var k=String(raw).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[\u00a0\u202f\u2009\u2007]/g,' ').replace(/\$/g,' ').replace(/\s+/g,' ');
+  var m;
+  m=k.match(/(\d+(?:[.,]\d+)?)\s*(millones|millon|mil|lucas?|k)\b/);
+  if(m){ var n=parseFloat(m[1].replace(',','.')); var v=Math.round(n*(/millon/.test(m[2])?1e6:1e3)); if(v>0) return v; }
+  m=k.match(/(^|[^\d])(\d{1,3}(?:[.,' ]\d{3})+)(?!\d)/);
+  if(m){ var g=parseInt(m[2].replace(/[.,' ]/g,''),10); if(g>0) return g; }
+  m=k.match(/(^|[^\d])(\d{1,9})(?!\d)/);
+  if(m){ var d=parseInt(m[2],10); if(d>0) return d; }
+  var w=wordsToNumber(norm(raw));
+  if(w && (w>=100 || /\bpesos?\b/.test(norm(raw)))) return w;
+  return null;
+}
+function extractContact(raw){
+  var t=' '+norm(raw)+' ', best=null, pos=1e9;
+  Object.keys(CONTACTS).forEach(function(key){
+    CONTACTS[key].aliases.forEach(function(a){
+      var i=t.indexOf(' '+a+' ');
+      if(i!==-1 && i<pos){ pos=i; best=key; }
+    });
+  });
+  return best;
+}
+function numberToWords(n){
+  var U=['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince',
+    'dieciseis','diecisiete','dieciocho','diecinueve','veinte','veintiuno','veintidos','veintitres','veinticuatro','veinticinco',
+    'veintiseis','veintisiete','veintiocho','veintinueve'];
+  var T=['','','','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa'];
+  var H=['','ciento','doscientos','trescientos','cuatrocientos','quinientos','seiscientos','setecientos','ochocientos','novecientos'];
+  function below(x){
+    if(x===100) return 'cien';
+    var out=[], h=Math.floor(x/100), r=x%100;
+    if(h) out.push(H[h]);
+    if(r){
+      if(r<30) out.push(r===1?'un':(r===21?'veintiun':U[r]));
+      else { var t=Math.floor(r/10), u=r%10; out.push(u?T[t]+' y '+(u===1?'un':U[u]):T[t]); }
+    }
+    return out.join(' ');
+  }
+  n=Math.round(n); if(n===0) return 'cero';
+  var parts=[], mill=Math.floor(n/1e6), mil=Math.floor((n%1e6)/1000), rest=n%1000;
+  if(mill) parts.push(mill===1?'un millon':below(mill)+' millones');
+  if(mil) parts.push(mil===1?'mil':below(mil)+' mil');
+  if(rest) parts.push(below(rest));
+  return parts.join(' ');
+}
+function spokenMoney(n){
+  n=Math.round(n);
+  if(n===1) return 'un peso';
+  return numberToWords(n)+((n>=1e6 && n%1e6===0)?' de pesos':' pesos');
+}
+function money(n){ return '$'+String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
+function rutSpoken(r){ return r.replace(/\./g,'').replace('-',', guion ').replace(/k$/i,'ka'); }
+function firstName(n){ return n.split(' ')[0]; }
+
+const YES = ['confirmar','confirmo','confirma','confirmado','si','claro','correcto','es correcto','exacto','acepto',
+  'de acuerdo','dale','ya','ok','okey','esta bien','asi es','adelante','hazlo','envialo','mandalo','por supuesto','autorizar','autorizo',
+  'esa es la persona','si esa es la persona','esa es la persona que busco','si esa es','esa es','es la persona','si busco','si es'];
+const NO  = ['cancelar','cancelo','cancela','cancelado','no','nop','detente','detener','espera','alto','mejor no',
+  'olvidalo','anulalo','anular','no quiero','retrocede','incorrecto','equivocado','otra persona',
+  'esa no es la persona','no esa no es','no es la persona','no es la persona que busco','cambiar','cambia','no es'];
+const EXIT = ['salir','inicio','volver','menu principal','pagina principal','cancelar','cancela'];
+
+function yesNo(raw){
+  var t=norm(raw), y=hasAny(t,YES), n=hasAny(t,NO);
+  if(y&&n){
+    if(/\bno (confirmo|confirmar|confirma|acepto|esta bien|dale|quiero|es correcto)\b/.test(t)) return 'no';
+    return 'both';
+  }
+  return y?'yes':(n?'no':null);
+}
+function isExit(raw){ return hasAny(norm(raw),EXIT); }
+function detectIntent(raw){
+  var t=norm(raw);
+  if(/\b(transfer\w*|transfier\w*|enviar|envia|enviale|mandar|manda|mandale|depositar|deposita|girar|gira)\b/.test(t)) return 'transfer';
+  if(/\b(saldo|cuanto tengo|cuanto me queda|cuanta plata tengo|cuanto dinero tengo)\b/.test(t)) return 'saldo';
+  if(/\b(ayuda|ayudame|no se|que puedo|opciones|repite|repetir|otra vez)\b/.test(t)) return 'help';
+  if(isExit(raw)) return 'exit';
+  return null;
+}
+// ===== PURE:END =====
+</script>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var app=$('app');
+  var views={
+    home: $('viewHome'),
+    recipients: $('viewRecipients'),
+    transfer: $('viewTransfer'),
+    success: $('viewSuccess'),
+    receipt: $('viewReceipt')
+  };
+  var dim=$('dim'),fab=$('fab'),sheet=$('sheet'),statusEl=$('status'),statusText=$('statusText'),msgEl=$('msg'),heard=$('heard'),
+      chipsEl=$('chips'),mic=$('mic'),note=$('note'),toastEl=$('toast'),repeatBtn=$('repeatBtn'),btnCloseSheet=$('btnCloseSheet'),
+      micHelpBanner=$('micHelpBanner'),btnGrantMic=$('btnGrantMic'),micHelpText=$('micHelpText'),btnHelpSteps=$('btnHelpSteps'),
+      micGuideModal=$('micGuideModal'),btnReloadPage=$('btnReloadPage'),btnDismissGuide=$('btnDismissGuide'),
+      inAppWarning=$('inAppWarning'),btnIntentChrome=$('btnIntentChrome');
+
+  /* Bottom sheet menú "¿Qué necesitas hacer?" */
+  var txSheetOverlay=$('txSheetOverlay'),btnTxSheetClose=$('btnTxSheetClose'),
+      btnOptThirdParty=$('btnOptThirdParty'),btnOptBetweenAccounts=$('btnOptBetweenAccounts');
+
+  /* Vista Destinatarios */
+  var btnRecipientsBack=$('btnRecipientsBack'),btnNewRecipient=$('btnNewRecipient'),
+      btnBetweenAccounts=$('btnBetweenAccounts'),contactSearchInput=$('contactSearchInput'),
+      contactListContainer=$('contactListContainer'),
+      tabFavs=$('tabFavs'),tabSaved=$('tabSaved'),tabPhone=$('tabPhone');
+
+  /* Vista Formulario Transferencia */
+  var fDest=$('fDest'),destName=$('destName'),destRut=$('destRut'),destBank=$('destBank'),
+      fAmount=$('fAmount'),amountVal=$('amountVal'),amountErr=$('amountErr'),
+      summary=$('summary'),continueBtn=$('continueBtn');
+
+  /* Modal BE Pass */
+  var authOverlay=$('authOverlay'),authCloseBtn=$('authCloseBtn'),
+      authPinConfirmBtn=$('authPinConfirmBtn'),btnBepassReject=$('btnBepassReject'),
+      authBioBtn=$('authBioBtn'),authFeedback=$('authFeedback'),
+      authDest=$('authDest'),authAmount=$('authAmount'),
+      bepassInputs=Array.from(document.querySelectorAll('.bepass-box'));
+
+  /* Overlay de Carga / Check de Autorización */
+  var txLoadingOverlay=$('txLoadingOverlay'),txLoadingCard=$('txLoadingCard'),
+      txLoadingTitle=$('txLoadingTitle');
+
+  /* Loader de transición nativo de BancoEstado (aureola girando) */
+  var bePageLoader=$('bePageLoader'), recipientsScroll=$('recipientsScroll');
+
+  /* Vista de Éxito */
+  var successDestName=$('successDestName'),successAmount=$('successAmount'),
+      successDate=$('successDate'),successOp=$('successOp'),
+      btnGoToReceipt=$('btnGoToReceipt'),btnMakeAnotherTx=$('btnMakeAnotherTx'),
+      btnExitHome=$('btnExitHome');
+
+  var S={view:'home',step:'home',dest:null,amount:null,pending:null,balance:100065};
+  var panelOpen=false,wantListen=false,busy=false,speaking=false,listening=false,thinking=false;
+  var gotFinal=false,session=0,greeted=false,thinkingLabel='';
+  var lastSpokenText='', lastDisplayText='';
+
+  var inactivityTimer=null, inactivityCount=0, INACTIVITY_LIMIT_MS=30000;
+
+  function resetInactivityWatchdog(){
+    clearTimeout(inactivityTimer);
+    if(!panelOpen || S.step==='done' || S.step==='auth') return;
+    inactivityTimer=setTimeout(handleInactivityTrigger, INACTIVITY_LIMIT_MS);
+  }
+
+  async function handleInactivityTrigger(){
+    if(!panelOpen || busy || speaking || S.step==='done') return;
+    inactivityCount++;
+    if(inactivityCount===1){
+      statusEl.className='status waiting';
+      statusText.textContent='ESPERANDO RESPUESTA';
+      await say('¿Sigues ahí? Dime en qué te puedo ayudar, o toca una opción abajo con tu dedo.');
+      resetInactivityWatchdog();
+      afterTurn();
+    } else {
+      wantListen=false; stopListening(); renderStatus();
+      setHeard('');
+      setMsg('Pausé la escucha para que puedas leer con calma. Toca el micrófono cuando quieras continuar.');
+    }
+  }
+
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+
+  /* Animación de carga BancoEstado: aureola girando en menos de 1 segundo */
+  async function showTransitionLoader(durationMs){
+    var d = durationMs || 750;
+    if(bePageLoader){
+      bePageLoader.classList.add('active');
+      await sleep(d);
+      bePageLoader.classList.remove('active');
+    }
+  }
+
+  /* ================= DETECCIÓN DE WEBVIEW (APP DE GOOGLE / WHATSAPP) ================= */
+  function isWebview(){
+    var ua = navigator.userAgent || '';
+    return /; wv\)|Android.*Version\/[0-9.]+|GSA\/|FBAN|FBAV|Instagram|WhatsApp|Line/i.test(ua);
+  }
+
+  // Si está dentro de la app de Google, ofrecemos abrir en Chrome oficial mediante Intent de Android
+  if(isWebview() && inAppWarning && btnIntentChrome){
+    var cleanUrl = location.href.replace(/^https?:\/\//, '');
+    btnIntentChrome.href = 'intent://' + cleanUrl + '#Intent;scheme=https;package=com.android.chrome;end';
+    inAppWarning.classList.add('show');
+  }
+
+  /* ================= SÍNTESIS DE VOZ TTS CON INTERRUPCIÓN (BARGE-IN) ================= */
+  var synthSupported='speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+  var voice=null;
+  var currentUtterFinish=null;
+
+  function pickVoice(){
+    if(!synthSupported) return;
+    var vs=speechSynthesis.getVoices()||[];
+    var prefs=['es-CL','es-MX','es-US','es-419','es-AR','es-ES'];
+    for(var i=0;i<prefs.length;i++){
+      for(var j=0;j<vs.length;j++){ if(vs[j].lang && vs[j].lang.replace('_','-')===prefs[i]){ voice=vs[j]; return; } }
+    }
+    for(var k=0;k<vs.length;k++){ if(vs[k].lang && vs[k].lang.toLowerCase().indexOf('es')===0){ voice=vs[k]; return; } }
+  }
+  if(synthSupported){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+
+  function renderStatus(){
+    var kind='idle', txt='TOCA PARA HABLAR';
+    if(thinking){ kind='thinking'; txt=thinkingLabel; }
+    else if(speaking){ kind='speaking'; txt='ASISTENTE HABLANDO'; }
+    else if(listening){ kind='listening'; txt='TE ESCUCHO CON CALMA…'; }
+    statusText.textContent=txt;
+    statusEl.className='status '+kind;
+    mic.className='mic '+kind;
+  }
+  function setMsg(t){ 
+    lastDisplayText=t;
+    msgEl.textContent=t; msgEl.classList.remove('swap'); void msgEl.offsetWidth; msgEl.classList.add('swap'); 
+  }
+  function setHeard(t){ heard.textContent = t ? 'Dijiste: “'+t+'”' : ''; }
+  function toast(t){ toastEl.textContent=t; toastEl.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(function(){ toastEl.classList.remove('show'); },3200); }
+  function updateDim(){ dim.classList.toggle('on', panelOpen); dim.classList.toggle('clear', S.view!=='home'); }
+  function settle(el){ el.style.animation='none'; void el.offsetWidth; el.style.animation='msg-in .4s cubic-bezier(.22,.61,.36,1)'; }
+
+  function goView(name){
+    if(S.view===name) return;
+    var order=['home','recipients','transfer','success','receipt'];
+    S.view=name;
+    Object.keys(views).forEach(function(k){
+      if(views[k]){
+        views[k].classList.toggle('is-active',k===name);
+        views[k].classList.toggle('is-before',k!==name && order.indexOf(k)<order.indexOf(name));
+      }
+    });
+    app.setAttribute('data-view',name);
+    var sc=views[name]?views[name].querySelector('.scroll'):null; if(sc) sc.scrollTop=0;
+    updateDim();
+  }
+
+  /* Renderizado dinámico de contactos agrupados alfabéticamente */
+  function renderContactList(query){
+    if(!contactListContainer) return;
+    var q = norm(query || '');
+    var keys = Object.keys(CONTACTS).filter(function(k){
+      if(!q) return true;
+      var c = CONTACTS[k];
+      return norm(c.name).indexOf(q)!==-1 || norm(c.rut).indexOf(q)!==-1 ||
+             norm(c.bank).indexOf(q)!==-1 || norm(c.account).indexOf(q)!==-1;
+    });
+
+    // Ordenar alfabéticamente por nombre
+    keys.sort(function(a,b){ return CONTACTS[a].name.localeCompare(CONTACTS[b].name); });
+
+    if(keys.length === 0){
+      contactListContainer.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--muted);font-weight:700;">No encontramos contactos para “' + (query||'') + '”.</div>';
+      return;
+    }
+
+    // Agrupar por letra inicial
+    var groups = {};
+    keys.forEach(function(k){
+      var c = CONTACTS[k];
+      var letter = c.name.charAt(0).toUpperCase();
+      if(!groups[letter]) groups[letter] = [];
+      groups[letter].push({ key: k, contact: c });
+    });
+
+    var html = '';
+    Object.keys(groups).sort().forEach(function(letter){
+      html += '<div class="contact-letter-group">';
+      html += '<div class="contact-letter-header">' + letter + '</div>';
+      groups[letter].forEach(function(item){
+        var c = item.contact;
+        var initials = c.name.split(' ').map(function(w){ return w.charAt(0); }).slice(0,2).join('');
+        html += '<div class="contact-item" data-key="' + item.key + '">';
+        html += '  <div class="contact-avatar">' + initials + '</div>';
+        html += '  <div class="contact-info">';
+        html += '    <div class="contact-name">' + c.name + '</div>';
+        html += '    <div class="contact-meta">' + c.bank + ' · ' + c.account + '</div>';
+        html += '  </div>';
+        html += '  <svg class="ic contact-arrow"><use href="#i-chev" xlink:href="#i-chev"/></svg>';
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+
+    contactListContainer.innerHTML = html;
+
+    // Asignar clicks a cada contacto
+    Array.prototype.forEach.call(contactListContainer.querySelectorAll('.contact-item'), function(el){
+      el.addEventListener('click', function(){
+        var key = el.getAttribute('data-key');
+        selectRecipientFromList(key);
+      });
+    });
+  }
+
+  async function selectRecipientFromList(key){
+    S.dest = key;
+    var c = CONTACTS[key];
+
+    // 1. Efecto Spotlight: oscurecer la pantalla menos el contacto elegido
+    var targetEl = contactListContainer ? contactListContainer.querySelector('.contact-item[data-key="' + key + '"]') : null;
+    if(targetEl && recipientsScroll){
+      recipientsScroll.classList.add('spotlight-active');
+      targetEl.classList.add('spotlight-target');
+      
+      // Asegurar que el marco principal y ventana jamÃ¡s se desplacen verticalmente
+      app.scrollTop = 0;
+      window.scrollTo(0, 0);
+
+      // Desplazar recipientsScroll para que el contacto quede perfectamente visible SOBRE el asistente
+      var sheetHeight = sheet.classList.contains('open') ? (sheet.offsetHeight || 280) : 100;
+      var availHeight = Math.max(120, recipientsScroll.clientHeight - sheetHeight);
+      var offsetTarget = targetEl.offsetTop - Math.max(16, (availHeight / 2) - 30);
+      recipientsScroll.scrollTo({ top: Math.max(0, offsetTarget), behavior: 'smooth' });
+    }
+
+    // 2. Establecer el paso de confirmaciÃ³n y chips
+    S.step = 'confirm_recipient';
+    renderChips();
+
+    // 3. El asistente consulta explÃ­citamente si es la persona que busca (sin pasar directo a pedir monto)
+    var msgDisplay = 'Â¿Quieres transferirle a ' + c.name + '?\nRUT ' + c.rut + ' Â· ' + c.bank + ' (' + c.account + ').\nÂ¿Es la persona que buscas?';
+    var msgSpoken = 'Â¿Quieres transferirle a ' + c.name + '? RUT ' + rutSpoken(c.rut) + ', ' + c.bank + ', ' + c.account + '. Â¿Es la persona que buscas?';
+    return say(msgDisplay, msgSpoken);
+  }
+
+  function setFocus(which){
+    views.transfer.setAttribute('data-focus', which);
+    var el = (which==='dest'||which==='summary') ? fDest : (which==='amount' ? fAmount : null);
+    var sc = $('tScroll');
+    if(sc){
+      if(which === 'amount'){
+        // En el paso de monto, mostramos desde arriba para que el destinatario y monto sean visibles juntos
+        sc.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if(el){
+        var top = Math.max(0, el.offsetTop - 14);
+        if(sc.scrollTo) sc.scrollTo({ top: top, behavior: 'smooth' }); else sc.scrollTop = top;
+      }
+    }
+    app.scrollTop = 0;
+    window.scrollTo(0, 0);
+  }
+
+  function updateBalances(){
+    Array.prototype.forEach.call(document.querySelectorAll('[data-balance]'),function(e){ e.textContent=money(S.balance); });
+  }
+
+  function fillDest(){
+    var c=CONTACTS[S.dest];
+    destName.textContent=c.name; destName.classList.remove('ph');
+    destRut.textContent='RUT '+c.rut; destBank.textContent='BancoEstado · CuentaRUT';
+    fDest.classList.add('filled'); settle($('fDestCard'));
+  }
+  function clearDest(){
+    destName.textContent='Aún no lo has dicho'; destName.classList.add('ph');
+    destRut.textContent='Di, por ejemplo: “a Belén Pardo”'; destBank.textContent='';
+    fDest.classList.remove('filled');
+  }
+  function fillAmount(){
+    amountVal.textContent=money(S.amount); amountVal.classList.remove('ph','err');
+    amountVal.style.cssText='';
+    fAmount.classList.remove('has-error'); fAmount.classList.add('filled'); amountErr.textContent=''; settle($('fAmountCard'));
+  }
+  function clearAmount(){
+    amountVal.textContent='Aún no lo has dicho'; amountVal.className='amount-big ph'; amountVal.style.cssText='font-size:16px;font-weight:600';
+    fAmount.classList.remove('filled','has-error'); amountErr.textContent='';
+  }
+  function showAmountError(a){
+    amountVal.textContent=money(a); amountVal.className='amount-big err'; amountVal.style.cssText='';
+    fAmount.classList.remove('filled'); fAmount.classList.add('has-error');
+    amountErr.textContent='No cuentas con ese monto. Saldo disponible: '+money(S.balance)+'.'; settle($('fAmountCard'));
+  }
+  function showSummary(){
+    var c=CONTACTS[S.dest];
+    summary.innerHTML='<b>¿Confirmas esta transferencia?</b>Vas a enviar <strong>'+money(S.amount)+'</strong> a <strong>'+c.name+'</strong> (RUT '+c.rut+').<br>Después de enviar te quedarían '+money(S.balance-S.amount)+'.';
+    summary.classList.add('show'); continueBtn.disabled=false;
+  }
+  function hideSummary(){ summary.classList.remove('show'); continueBtn.disabled=true; }
+  function resetTransfer(){
+    S.dest=null; S.amount=null; S.pending=null;
+    clearDest(); clearAmount(); hideSummary(); setFocus('none');
+  }
+
+  /* Síntesis TTS */
+  function say(display, spoken){
+    setMsg(display); renderChips();
+    lastSpokenText=spoken||display;
+    if(!panelOpen) return Promise.resolve();
+    return new Promise(function(resolve){
+      speaking=true; stopListening(); renderStatus();
+      var finished=false, guard=null;
+      function finish(){
+        if(finished) return; finished=true; clearTimeout(guard);
+        currentUtterFinish = null;
+        speaking=false; renderStatus(); 
+        resetInactivityWatchdog();
+        setTimeout(resolve, 100);
+      }
+      currentUtterFinish = finish;
+      var text=(spoken||display).replace(/[“”"]/g,'');
+      guard=setTimeout(finish, 1400+text.length*80);
+      if(!synthSupported){ setTimeout(finish, Math.min(3000,700+text.length*30)); return; }
+      try{ speechSynthesis.cancel(); }catch(e){}
+      var u=new SpeechSynthesisUtterance(text);
+      u.lang=voice?voice.lang:'es-CL'; if(voice) u.voice=voice; u.rate=0.92; u.pitch=1.0;
+      u.onend=finish; u.onerror=finish;
+      try{ speechSynthesis.speak(u); }catch(e){ finish(); }
+    });
+  }
+
+  /* Interrupción inmediata de voz (Barge-In) */
+  function skipSpeech(){
+    try{ speechSynthesis.cancel(); }catch(e){}
+    if(currentUtterFinish){
+      currentUtterFinish();
+    } else {
+      speaking = false;
+      renderStatus();
+    }
+  }
+
+  /* ================= RECONOCIMIENTO DE VOZ AUTO-RECUPERABLE ================= */
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  var rec = null;
+
+  function createRecognitionInstance(){
+    if(!SR) return null;
+    try {
+      var r = new SR();
+      r.lang = 'es-CL';
+      r.continuous = false;
+      r.interimResults = true;
+      r.maxAlternatives = 1;
+
+      r.onstart = function(){
+        listening = true;
+        gotFinal = false;
+        micHelpBanner.classList.remove('show');
+        renderStatus();
+      };
+
+      r.onresult = function(e){
+        inactivityCount = 0;
+        resetInactivityWatchdog();
+        var interim = '', final = '';
+        for(var i=e.resultIndex; i<e.results.length; i++){
+          var tr = e.results[i][0].transcript;
+          if(e.results[i].isFinal) final += tr; else interim += tr;
+        }
+        if(final.trim()){
+          gotFinal = true;
+          handleUtterance(final.trim());
+        } else if(interim){
+          heard.textContent = 'Dijiste: “' + interim + '…”';
+        }
+      };
+
+      r.onerror = function(e){
+        listening = false;
+        renderStatus();
+        if(e.error === 'no-speech' || e.error === 'aborted') return;
+        
+        console.warn('SpeechRecognition error:', e.error);
+        if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+          wantListen = false;
+          showMicBlockedNotice();
+        } else if(e.error === 'network' || e.error === 'language-not-supported'){
+          // Fallback automático de dialecto si el teléfono no tiene el paquete chileno offline
+          if(r.lang === 'es-CL'){
+            r.lang = 'es-419'; // Español neutro
+            try { r.start(); return; } catch(err){}
+          }
+          micHelpText.innerHTML = '⚠️ <b>Conexión de voz:</b> Revisa tu conexión o desactiva bloqueadores para este sitio.';
+          micHelpBanner.classList.add('show');
+        } else {
+          setMsg('Toca el micrófono para intentar hablar de nuevo.');
+        }
+      };
+
+      r.onend = function(){
+        listening = false;
+        renderStatus();
+        if(!panelOpen || !wantListen || busy || speaking || gotFinal) return;
+        if(panelOpen && wantListen && !busy && !speaking && S.step !== 'done'){
+          setTimeout(function(){
+            if(panelOpen && wantListen && !busy && !speaking && !listening) startListening();
+          }, 250);
+        }
+      };
+
+      return r;
+    } catch(err){
+      console.error('Error creando SpeechRecognition:', err);
+      return null;
+    }
+  }
+
+  rec = createRecognitionInstance();
+
+  function stopListening(){
+    if(rec){
+      try { rec.abort(); } catch(e){}
+    }
+    listening = false;
+    renderStatus();
+  }
+
+  function startListening(){
+    if(!panelOpen || busy || speaking || listening || S.step==='done') return;
+    if(!rec){
+      rec = createRecognitionInstance();
+      if(!rec) return;
+    }
+    gotFinal = false;
+    try {
+      rec.start();
+    } catch(e){
+      console.warn('Recreando SpeechRecognition:', e.name);
+      try { rec.abort(); } catch(err){}
+      rec = createRecognitionInstance();
+      try { rec.start(); } catch(err){
+        console.error('No se pudo iniciar rec:', err);
+      }
+    }
+  }
+
+  function showMicBlockedNotice(){
+    if(isWebview()){
+      micHelpText.innerHTML = '⚠️ <b>Estás en el visor interno de Google o WhatsApp:</b> No permite micrófono. Toca los tres puntos <b>⋮</b> arriba a la derecha y selecciona <b>"Abrir en Chrome"</b>.';
+    } else {
+      micHelpText.innerHTML = '⚠️ <b>Micrófono bloqueado en Chrome:</b> Toca el candado o icono 🔒/⚙️ a la izquierda de la dirección web, entra a <b>Permisos</b>, activa el <b>Micrófono</b> y recarga la página.';
+    }
+    micHelpBanner.classList.add('show');
+  }
+
+  /* Solicita permiso explícito mediante getUserMedia en User Gesture */
+  async function requestMicExplicitly(){
+    if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+      try {
+        var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Pausa de 300ms antes de detener tracks para que Chrome registre el permiso en el perfil
+        setTimeout(function(){
+          stream.getTracks().forEach(function(t){ t.stop(); });
+        }, 300);
+        micHelpBanner.classList.remove('show');
+        toast('✓ Micrófono habilitado');
+        wantListen = true;
+        setTimeout(function(){
+          startListening();
+        }, 400);
+        return true;
+      } catch(err){
+        console.warn('getUserMedia falló:', err);
+        showMicBlockedNotice();
+        micGuideModal.classList.add('active');
+        return false;
+      }
+    }
+    showMicBlockedNotice();
+    micGuideModal.classList.add('active');
+    return false;
+  }
+
+  function afterTurn(){ 
+    if(panelOpen && wantListen && !busy && !speaking && S.step!=='done'){
+      startListening(); 
+    }
+  }
+
+  async function handleUtterance(raw){
+    if(busy||!panelOpen) return;
+    busy=true; inactivityCount=0; wantListen=true; var my=session;
+    stopListening(); setHeard(raw);
+    thinking=true; thinkingLabel='REVISANDO…'; renderStatus();
+    await sleep(500);
+    thinking=false; renderStatus();
+    if(!panelOpen||my!==session){ busy=false; return; }
+    try{ await route(raw); }catch(err){ console.error(err); }
+    busy=false; afterTurn();
+  }
+
+  function route(raw){
+    switch(S.step){
+      case 'home': return stepHome(raw);
+      case 'choose_type': return stepChooseType(raw);
+      case 'recipient': return stepRecipient(raw);
+      case 'confirm_recipient': return stepConfirmRecipient(raw);
+      case 'amount': return stepAmount(raw);
+      case 'confirm_send': return stepConfirmSend(raw);
+      case 'auth': return stepAuth(raw);
+    }
+    return Promise.resolve();
+  }
+
+  function recipientAsk(c, prefix){
+    prefix=prefix||'';
+    return say(prefix+'Encontré a '+c.name+', RUT '+c.rut.replace('-','\u2011')+'. ¿Es la persona correcta? Di sí o no.',
+               prefix+'Encontré a '+c.name+', RUT '+rutSpoken(c.rut)+'. ¿Es la persona correcta? Di sí, o no.');
+  }
+  function sendAsk(){
+    var c=CONTACTS[S.dest], left=S.balance-S.amount;
+    return say('Vas a enviar '+money(S.amount)+' a '+c.name+'. Después te quedarían '+money(left)+'. Con calma, di “confirmo” para enviar.',
+               'Vas a enviar '+spokenMoney(S.amount)+' a '+c.name+'. Después te quedarían '+spokenMoney(left)+'. Con calma, di confirmo para enviar.');
+  }
+  function amountAsk(){
+    var c=CONTACTS[S.dest];
+    return say('¿Cuánto dinero quieres transferirle a '+firstName(c.name)+'? Por ejemplo: “treinta mil pesos”.',
+               '¿Cuánto dinero quieres transferirle a '+firstName(c.name)+'? Por ejemplo: treinta mil pesos.');
+  }
+  function promptForStep(){
+    switch(S.step){
+      case 'home':
+        if(!greeted){ greeted=true;
+          return say('¡Hola! Seré quien te ayude para que completes tu proceso sin errores. Dime qué necesitas. Por ejemplo: “quiero transferir”.',
+                     'Hola. Seré quien te ayude para que completes tu proceso sin errores. Dime qué necesitas. Por ejemplo: quiero transferir.'); }
+        return say('Hola de nuevo. ¿Qué necesitas hacer? Por ejemplo: “quiero transferir”.','Hola de nuevo. ¿Qué necesitas hacer? Por ejemplo: quiero transferir.');
+      case 'choose_type':
+        txSheetOverlay.classList.remove('active');
+        return say('¿Qué necesitas hacer? Puedes transferir a terceros o entre tus cuentas.');
+      case 'recipient': return say('¿A quién le quieres transferir dinero? Dime su nombre o elígelo en la lista.');
+      case 'confirm_recipient': return recipientAsk(CONTACTS[S.dest]);
+      case 'amount': return amountAsk();
+      case 'confirm_send': return sendAsk();
+      case 'auth': return say('Por seguridad, ingresa tu clave BE Pass de 6 dígitos en la pantalla.');
+    }
+    return Promise.resolve();
+  }
+
+  async function stepHome(raw){
+    var intent=detectIntent(raw);
+    if(intent==='transfer') return enterTransfer(raw);
+    if(intent==='saldo')
+      return say('Tu saldo disponible es '+money(S.balance)+'. Si quieres, puedes decir: “quiero transferir”.',
+                 'Tu saldo disponible es '+spokenMoney(S.balance)+'. Si quieres, puedes decir: quiero transferir.');
+    if(intent==='help') return promptForStep();
+    return say('No te entendí bien, no te preocupes. Puedes decir: “quiero transferir”, o preguntar: “¿cuál es mi saldo?”.');
+  }
+
+  /* Paso "¿Qué necesitas hacer?": A terceros o Entre mis cuentas */
+  async function enterTransfer(raw){
+    S.step='choose_type';
+    txSheetOverlay.classList.add('active');
+    return say('¿Qué necesitas hacer? Puedes transferir a terceros o entre tus cuentas.');
+  }
+
+  async function stepChooseType(raw){
+    var t=norm(raw);
+    if(hasAny(t, ['terceros','tercero','a terceros','otra persona','otra cuenta','otro banco'])){
+      txSheetOverlay.classList.remove('active');
+      await showTransitionLoader(750);
+      resetTransfer();
+      renderContactList('');
+      goView('recipients');
+      S.step='recipient';
+      return say('Muy bien. ¿A quién le quieres transferir dinero? Dime su nombre o elígelo en la lista.');
+    }
+    if(hasAny(t, ['entre mis cuentas','mis cuentas','cuenta propia','propia'])){
+      txSheetOverlay.classList.remove('active');
+      await say('Por ahora solo está disponible la opción a terceros. Vamos a continuar a terceros.');
+      await showTransitionLoader(750);
+      resetTransfer();
+      renderContactList('');
+      goView('recipients');
+      S.step='recipient';
+      return say('¿A quién le quieres transferir dinero? Dime su nombre o elígelo en la lista.');
+    }
+    if(isExit(raw)){
+      txSheetOverlay.classList.remove('active');
+      return leaveToHome(true);
+    }
+    return say('Por favor dime si quieres transferir “a terceros” o “entre mis cuentas”.');
+  }
+
+  async function foundRecipient(key,prefix){
+    return selectRecipientFromList(key);
+  }
+
+  async function stepRecipient(raw){
+    var c=extractContact(raw);
+    if(c){
+      var a=extractAmount(raw); if(a) S.pending=a;
+      return selectRecipientFromList(c);
+    }
+    var intent=detectIntent(raw);
+    if(intent==='exit') return leaveToHome(true);
+    if(intent==='help') return promptForStep();
+    return say('No encontré a esa persona en tus contactos. Puedes elegir a alguien de la lista o decir por ejemplo Belén Pardo o Elena Ramírez.');
+  }
+
+  async function stepConfirmRecipient(raw){
+    var c = extractContact(raw), yn = yesNo(raw);
+    if(c && c !== S.dest) return selectRecipientFromList(c);
+
+    // Si el usuario confirma que sÃ­ es la persona que busca
+    if(yn === 'yes' || (c && c === S.dest && yn !== 'no')){
+      // Limpiar spotlight de la lista
+      if(recipientsScroll) recipientsScroll.classList.remove('spotlight-active');
+      var prevTarget = contactListContainer ? contactListContainer.querySelector('.contact-item.spotlight-target') : null;
+      if(prevTarget) prevTarget.classList.remove('spotlight-target');
+
+      // TransiciÃ³n nativa BancoEstado (< 1 seg con aureola girando)
+      await showTransitionLoader(720);
+
+      // Ahora sÃ­ pasa al formulario de transferencia con foco en monto
+      fillDest();
+      goView('transfer');
+      S.step = 'amount';
+      setFocus('amount');
+
+      if(S.pending){ var a = S.pending; S.pending = null; return setAmount(a); }
+      return amountAsk();
+    }
+
+    // Si el usuario dice que no es la persona
+    if(yn === 'no'){
+      if(recipientsScroll) recipientsScroll.classList.remove('spotlight-active');
+      var prevTarget2 = contactListContainer ? contactListContainer.querySelector('.contact-item.spotlight-target') : null;
+      if(prevTarget2) prevTarget2.classList.remove('spotlight-target');
+
+      S.dest = null; clearDest();
+      S.step = 'recipient';
+      renderChips();
+      return say('EstÃ¡ bien. Dime a quiÃ©n quieres transferirle o elÃ­gelo en la lista.');
+    }
+
+    if(isExit(raw)) return leaveToHome(true);
+    return say('Â¿Es la persona que buscas? Di â€œsÃ­, esa esâ€ para continuar, o â€œno, cambiarâ€ si buscas a otra persona.');
+  }
+
+  async function setAmount(a){
+    if(a>S.balance){
+      showAmountError(a); S.amount=null; hideSummary(); S.step='amount'; setFocus('amount');
+      return say('No cuentas con ese monto. Tu saldo disponible es '+money(S.balance)+'. Prueba con otro monto menor.',
+                 'No cuentas con ese monto. Tu saldo disponible es '+spokenMoney(S.balance)+'. Prueba con otro monto menor.');
+    }
+    S.amount=a; fillAmount(); S.step='confirm_send'; showSummary(); setFocus('summary');
+    return sendAsk();
+  }
+
+  async function stepAmount(raw){
+    var a=extractAmount(raw);
+    if(a){
+      await showTransitionLoader(700);
+      return setAmount(a);
+    }
+    var c=extractContact(raw);
+    if(c && c!==S.dest) return selectRecipientFromList(c);
+    var intent=detectIntent(raw);
+    if(intent==='exit') return leaveToHome(true);
+    if(intent==='help') return promptForStep();
+    return say('No logré entender el monto, no te preocupes. Dime, por ejemplo: “treinta mil pesos”.');
+  }
+
+  async function stepConfirmSend(raw){
+    var yn=yesNo(raw);
+    if(yn==='yes'){
+      await showTransitionLoader(700);
+      return promptSecurityAuth();
+    }
+    if(yn==='no') return cancelTransfer();
+    if(yn==='both') return say('Para enviar di “confirmo”. Para detenerte di “cancelar”.');
+    var a=extractAmount(raw);
+    if(a){
+      await showTransitionLoader(700);
+      return setAmount(a);
+    }
+    var c=extractContact(raw);
+    if(c && c!==S.dest){
+      S.pending=S.amount; S.amount=null; clearAmount(); hideSummary();
+      return selectRecipientFromList(c);
+    }
+    return say('Para enviar di “confirmo”. Si prefieres cambiar algo, dime qué corregir.');
+  }
+
+  /* Paso BE Pass */
+  function resetBepassBoxes(){
+    bepassInputs.forEach(function(b){ b.value=''; b.classList.remove('filled'); });
+    authPinConfirmBtn.disabled=true;
+    authPinConfirmBtn.classList.remove('ready');
+  }
+
+  async function promptSecurityAuth(){
+    S.step='auth';
+    resetBepassBoxes();
+    authOverlay.classList.add('active');
+    setTimeout(function(){ bepassInputs[0] && bepassInputs[0].focus(); }, 380);
+
+    return say('Por seguridad, ingresa tu clave BE Pass de 6 dígitos en la pantalla.',
+               'Por seguridad, ingresa tu clave BE Pass de 6 dígitos en la pantalla.');
+  }
+
+  async function stepAuth(raw){
+    if(isExit(raw) || hasAny(norm(raw),NO)) {
+      closeSecurityAuth();
+      return cancelTransfer();
+    }
+    if(hasAny(norm(raw),['autorizar','autorizo','clave','si','confirmo','confirmar'])){
+      return triggerAuthSuccess();
+    }
+    return say('Ingresa tu clave BE Pass de 6 dígitos en pantalla para autorizar, o presiona Rechazar.');
+  }
+
+  function closeSecurityAuth(){
+    authOverlay.classList.remove('active');
+    resetBepassBoxes();
+  }
+
+  async function triggerAuthSuccess(){
+    closeSecurityAuth();
+    
+    // 1. Mostrar overlay de carga con spinner
+    txLoadingOverlay.classList.add('active');
+    txLoadingCard.classList.remove('success');
+    txLoadingTitle.textContent = 'Autorizando con BE Pass…';
+    
+    await sleep(1000);
+
+    // 2. Transición a check verde animado
+    txLoadingCard.classList.add('success');
+    txLoadingTitle.textContent = 'Autorización realizada';
+
+    await sleep(750);
+
+    // 3. Ocultar loading, mostrar loader de transición BancoEstado y pasar a éxito
+    txLoadingOverlay.classList.remove('active');
+    await showTransitionLoader(650);
+    return executeTransfer();
+  }
+
+  async function cancelTransfer(){
+    closeSecurityAuth();
+    resetTransfer(); S.step='recipient'; goView('recipients');
+    return say('Listo, cancelé la operación. Tu dinero no se tocó. Si quieres intentar otra transferencia, selecciona a quién enviar.');
+  }
+
+  async function executeTransfer(){
+    if(!S.dest||!S.amount||S.amount>S.balance) return;
+    var c=CONTACTS[S.dest], amt=S.amount;
+    S.balance-=amt; updateBalances();
+    var d=new Date(), p=function(n){ return (n<10?'0':'')+n; };
+    var dateStr = p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' · '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+    var opStr = String(8000000+Math.floor(Math.random()*999999));
+
+    // Llenar vista de Éxito
+    successDestName.textContent = c.name;
+    successAmount.textContent = money(amt);
+    successDate.textContent = dateStr;
+    successOp.textContent = opStr;
+
+    // Llenar comprobante oficial
+    $('rAmount').textContent=money(amt);
+    $('rDest').innerHTML=c.name+'<small>RUT '+c.rut+'</small><small>'+c.bank+' · '+c.account+'</small>';
+    $('rDate').textContent=dateStr;
+    $('rOp').textContent=opStr;
+
+    goView('success'); S.step='done';
+
+    await say('¡Has realizado la transferencia a '+c.name+' con éxito por '+money(amt)+'!',
+               'Has realizado la transferencia a '+c.name+' con éxito por '+spokenMoney(amt)+'.');
+    closeAssistant();
+  }
+
+  async function leaveToHome(speak){
+    closeSecurityAuth();
+    txSheetOverlay.classList.remove('active');
+    resetTransfer(); S.step='home'; goView('home');
+    if(speak) return say('Listo, volvimos al inicio. Dime cuando quieras transferir.');
+  }
+
+  /* Píldoras con soporte de interrupción instantánea (Barge-In) */
+  function chipsFor(step){
+    switch(step){
+      case 'home': return ['Quiero transferir','¿Cuál es mi saldo?'];
+      case 'choose_type': return ['A terceros','Entre mis cuentas'];
+      case 'recipient': return ['Belén Pardo','Elena Ramírez','Luis Olate'];
+      case 'confirm_recipient': return ['Sí, es la persona','No, cambiar'];
+      case 'amount': return ['10 mil pesos','30 mil pesos','50 mil pesos'];
+      case 'confirm_send': return ['Sí, confirmo','Cambiar monto'];
+      case 'auth': return ['Autorizar clave BE Pass'];
+    }
+    return [];
+  }
+  function renderChips(){
+    chipsEl.innerHTML='';
+    chipsFor(S.step).forEach(function(t){
+      var b=document.createElement('button'); b.type='button'; b.className='chip'; 
+      b.textContent=t;
+      b.addEventListener('click', async function(){ 
+        resetInactivityWatchdog();
+        // Si el usuario toca un botón mientras habla el asistente en CUALQUIER paso, cortar la voz
+        if(speaking){
+          skipSpeech();
+          await sleep(50);
+        }
+        if(t==='Cambiar persona' || t==='No, cambiar') {
+          if(recipientsScroll) recipientsScroll.classList.remove('spotlight-active');
+          var prevTarget = contactListContainer ? contactListContainer.querySelector('.contact-item.spotlight-target') : null;
+          if(prevTarget) prevTarget.classList.remove('spotlight-target');
+          S.dest=null; clearDest(); S.step='recipient'; promptForStep();
+        }
+        else if(t==='Cambiar monto') { S.amount=null; clearAmount(); hideSummary(); S.step='amount'; setFocus('amount'); promptForStep(); }
+        else if(panelOpen) handleUtterance(t); 
+      });
+      chipsEl.appendChild(b);
+    });
+  }
+
+  /* Control de apertura / cierre */
+  async function openAssistant(){
+    if(panelOpen) return;
+    panelOpen=true; wantListen=true; var my=++session;
+    inactivityCount=0;
+    sheet.classList.add('open'); fab.classList.add('hidden'); updateDim(); renderChips(); renderStatus(); setHeard('');
+    resetInactivityWatchdog();
+
+    if(!SR){
+      note.textContent='Este navegador no tiene soporte de voz nativo. Puedes usar los botones en pantalla o escribir tu mensaje.';
+      if(!$('typebox')){
+        var inp=document.createElement('input'); inp.id='typebox'; inp.className='typebox'; inp.placeholder='Escribe tu respuesta aquí';
+        inp.addEventListener('keydown',function(e){ if(e.key==='Enter' && inp.value.trim()){ var v=inp.value.trim(); inp.value=''; handleUtterance(v); } });
+        sheet.appendChild(inp);
+      }
+    }
+
+    if(!panelOpen||my!==session) return;
+    
+    // Primero el asistente habla su saludo; una vez que termina de hablar, se activa el micrófono
+    await promptForStep();
+    if(panelOpen && wantListen && !busy && my===session && !speaking){
+      startListening();
+    }
+  }
+
+  function closeAssistant(){
+    if(!panelOpen) return;
+    panelOpen=false; wantListen=false; session++; busy=false; thinking=false; speaking=false;
+    clearTimeout(inactivityTimer);
+    stopListening(); skipSpeech();
+    sheet.classList.remove('open'); fab.classList.remove('hidden'); updateDim(); renderStatus();
+  }
+
+  /* ================= EVENTOS Y LISTENERS ================= */
+  fab.addEventListener('click', openAssistant);
+  btnCloseSheet.addEventListener('click', closeAssistant);
+  btnGrantMic.addEventListener('click', requestMicExplicitly);
+  btnHelpSteps.addEventListener('click', function(){ micGuideModal.classList.add('active'); });
+  btnDismissGuide.addEventListener('click', function(){ micGuideModal.classList.remove('active'); });
+  btnReloadPage.addEventListener('click', function(){ location.reload(); });
+  
+  repeatBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    if(lastDisplayText) say(lastDisplayText, lastSpokenText);
+  });
+
+  dim.addEventListener('click', closeAssistant);
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeAssistant(); });
+  
+  /* ================= BARGE-IN UNIVERSAL: INTERRUPCIÓN EN TODOS LOS PASOS ================= */
+  mic.addEventListener('click', function(){
+    if(!panelOpen) return;
+    resetInactivityWatchdog();
+
+    // BARGE-IN: Si el asistente está hablando en CUALQUIER paso de la transferencia
+    // (Destinatario, Monto, Confirmación, BE Pass, etc.), cortamos la voz al instante y pasamos a escuchar
+    if(speaking){
+      wantListen = true;
+      heard.textContent = '';
+      skipSpeech();
+      renderStatus();
+      setTimeout(function(){
+        if(panelOpen && wantListen && !speaking){
+          startListening();
+        }
+      }, 80);
+      return;
+    }
+
+    // Si la app está pensando o transicionando de vista, no hacer nada
+    if(thinking) return;
+
+    // Si ya estaba escuchando: pausar
+    if(listening){
+      wantListen = false;
+      stopListening();
+      renderStatus();
+      return;
+    }
+
+    // Si estaba inactivo: empezar a escuchar
+    wantListen = true;
+    heard.textContent = '';
+    startListening();
+  });
+
+  /* ================= NAVEGACIÓN Y BOTTOM SHEET "¿QUÉ NECESITAS HACER?" ================= */
+  $('navTransfer').addEventListener('click', function(){
+    if(!panelOpen){
+      txSheetOverlay.classList.add('active');
+    } else {
+      txSheetOverlay.classList.remove('active');
+      S.step = 'choose_type';
+      promptForStep();
+    }
+  });
+
+  btnTxSheetClose.addEventListener('click', function(){
+    txSheetOverlay.classList.remove('active');
+  });
+
+  txSheetOverlay.addEventListener('click', function(e){
+    if(e.target === txSheetOverlay) txSheetOverlay.classList.remove('active');
+  });
+
+  btnOptThirdParty.addEventListener('click', async function(){
+    txSheetOverlay.classList.remove('active');
+    await showTransitionLoader(750);
+    resetTransfer();
+    renderContactList('');
+    goView('recipients');
+    S.step = 'recipient';
+    if(panelOpen) promptForStep();
+  });
+
+  btnOptBetweenAccounts.addEventListener('click', async function(){
+    txSheetOverlay.classList.remove('active');
+    toast('Por ahora continuaremos a terceros.');
+    await showTransitionLoader(750);
+    resetTransfer();
+    renderContactList('');
+    goView('recipients');
+    S.step = 'recipient';
+    if(panelOpen) promptForStep();
+  });
+
+  /* ================= PANTALLA SELECCIÓN DE DESTINATARIO ================= */
+  btnRecipientsBack.addEventListener('click', function(){
+    leaveToHome(false);
+  });
+
+  btnNewRecipient.addEventListener('click', function(){
+    toast('Selecciona un contacto guardado en la lista.');
+  });
+
+  btnBetweenAccounts.addEventListener('click', function(){
+    toast('En este prototipo continuaremos a terceros.');
+  });
+
+  contactSearchInput.addEventListener('input', function(){
+    renderContactList(this.value);
+  });
+
+  tabSaved.addEventListener('click', function(){
+    tabSaved.classList.add('active'); tabFavs.classList.remove('active'); tabPhone.classList.remove('active');
+    renderContactList('');
+  });
+  tabFavs.addEventListener('click', function(){
+    tabFavs.classList.add('active'); tabSaved.classList.remove('active'); tabPhone.classList.remove('active');
+    renderContactList('Belén');
+  });
+  tabPhone.addEventListener('click', function(){
+    tabPhone.classList.add('active'); tabSaved.classList.remove('active'); tabFavs.classList.remove('active');
+    toast('Contactos importados del celular.');
+    renderContactList('');
+  });
+
+  /* ================= FORMULARIO DE TRANSFERENCIA ================= */
+  $('backBtn').addEventListener('click', function(){
+    goView('recipients');
+    S.step = 'recipient';
+    if(panelOpen) promptForStep();
+  });
+
+  continueBtn.addEventListener('click', function(){
+    if(!panelOpen) openAssistant();
+    else if(S.step === 'confirm_send') sendAsk();
+  });
+
+  /* ================= BE PASS: CASILLEROS DE 6 DÍGITOS ================= */
+  function checkBepassReady(){
+    var full = bepassInputs.every(function(b){ return b.value.length === 1; });
+    authPinConfirmBtn.disabled = !full;
+    if(full){ authPinConfirmBtn.classList.add('ready'); }
+    else     { authPinConfirmBtn.classList.remove('ready'); }
+  }
+
+  bepassInputs.forEach(function(box, idx){
+    box.addEventListener('input', function(){
+      // Solo aceptar 1 dígito numérico
+      box.value = box.value.replace(/\D/g, '').slice(-1);
+      if(box.value){
+        box.classList.add('filled');
+      } else {
+        box.classList.remove('filled');
+      }
+      checkBepassReady();
+
+      // Auto-avance al siguiente casillero
+      if(box.value && idx < bepassInputs.length - 1){
+        bepassInputs[idx + 1].focus();
+      }
+
+      // Si se completaron los 6, enfocar botón Autorizar
+      if(bepassInputs.every(function(b){ return b.value.length === 1; })){
+        authPinConfirmBtn.focus();
+      }
+    });
+
+    box.addEventListener('keydown', function(e){
+      // Backspace retrocede y limpia
+      if(e.key === 'Backspace' && !box.value && idx > 0){
+        bepassInputs[idx - 1].focus();
+        bepassInputs[idx - 1].value = '';
+        bepassInputs[idx - 1].classList.remove('filled');
+        checkBepassReady();
+      }
+      if(e.key === 'Enter' && !authPinConfirmBtn.disabled){
+        triggerAuthSuccess();
+      }
+    });
+
+    // Soporte para pegar clave de 6 dígitos
+    box.addEventListener('paste', function(e){
+      e.preventDefault();
+      var digits = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+      digits.split('').forEach(function(d, i){
+        if(bepassInputs[i]){
+          bepassInputs[i].value = d;
+          bepassInputs[i].classList.add('filled');
+        }
+      });
+      checkBepassReady();
+      var next = Math.min(digits.length, bepassInputs.length - 1);
+      bepassInputs[next].focus();
+    });
+  });
+
+  authPinConfirmBtn.addEventListener('click', triggerAuthSuccess);
+  btnBepassReject.addEventListener('click', cancelTransfer);
+  authCloseBtn.addEventListener('click', cancelTransfer);
+  authBioBtn.addEventListener('click', triggerAuthSuccess);
+
+  /* ================= PANTALLA DE ÉXITO ================= */
+  btnGoToReceipt.addEventListener('click', function(){
+    goView('receipt');
+  });
+
+  btnMakeAnotherTx.addEventListener('click', async function(){
+    resetTransfer();
+    renderContactList('');
+    await showTransitionLoader(700);
+    goView('recipients');
+    S.step = 'recipient';
+    if(panelOpen) promptForStep();
+  });
+
+  btnExitHome.addEventListener('click', async function(){
+    resetTransfer();
+    S.step = 'home';
+    await showTransitionLoader(650);
+    goView('home');
+  });
+
+  /* ================= COMPROBANTE OFICIAL ================= */
+  $('shareBtn').addEventListener('click', function(){
+    var t = 'Comprobante de transferencia por ' + $('rAmount').textContent + ' · N° ' + $('rOp').textContent;
+    if(navigator.share){ navigator.share({title:'Comprobante', text:t}).catch(function(){}); }
+    else toast('Comprobante copiado.');
+  });
+
+  $('exitBtn').addEventListener('click', async function(){
+    resetTransfer();
+    S.step = 'home';
+    await showTransitionLoader(650);
+    goView('home');
+  });
+
+  app.addEventListener('click',function(e){
+    var d=e.target.closest ? e.target.closest('.dead') : null;
+    if(d) toast('Esta sección no está activa en la prueba.');
+  });
+
+  updateBalances(); renderStatus(); renderChips(); renderContactList('');
+
+  // Bloqueo estricto para evitar que .app o la ventana se desplacen verticalmente
+  app.addEventListener('scroll', function(){ if(app.scrollTop !== 0) app.scrollTop = 0; });
+  window.addEventListener('scroll', function(){ if(window.scrollY !== 0) window.scrollTo(0, 0); });
+})();
+</script>
+</body>
+</html>
